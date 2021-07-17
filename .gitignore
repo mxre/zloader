@@ -1,0 +1,5 @@
+.vscode/
+build/
+*.dep
+*.o
+*.efi
