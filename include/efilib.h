@@ -3,6 +3,7 @@
 #include <efi.h>
 
 #include "efilib/config.h"
+#include "efilib/div.h"
 #include "efilib/externs.h"
 #include "efilib/debug.h"
 #include "efilib/rtlib.h"

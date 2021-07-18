@@ -38,7 +38,7 @@ uint64_t ticks_freq() {
     stall(1000);
     ticks_end = ticks_read();
 
-    EFI_DBG_PRINTF("counter freq: %u", ticks_end - ticks_start);
+    EFILIB_DBG_PRINTF("counter freq: %lu", ticks_end - ticks_start);
 
     return (ticks_end - ticks_start) * UINT64_C(1000);
 }
@@ -53,13 +53,25 @@ void initialize_library(
     BS = system_table->boot_services;
     RT = system_table->runtime_services;
 
+    EFILIB_DBG_PRINTF("%ls %hX.%hX UEFI %hu.%hu",
+        ST->firmware_vendor,
+        ST->firmware_revision >> 16, ST->firmware_revision,
+        ST->hdr.revision >> 16, ST->hdr.revision );
+    EFILIB_DBG_PRINTF("SystemTable    : %.8s", (char8_t*) &ST->hdr.signature);
+    EFILIB_DBG_PRINTF("BootServices   : %.8s", (char8_t*) &BS->hdr.signature);
+    EFILIB_DBG_PRINTF("RuntimeServices: %.8s", (char8_t*) &RT->hdr.signature);
+
+    EFILIB_DBG_PRINTF("Console: { mode: %u attr: %X (%d, %d) }",
+        ST->out->mode->mode, ST->out->mode->attribute,
+        ST->out->mode->cursor_column, ST->out->mode->cursor_row );
+
     freq = ticks_freq();
 
     if (EFI_IMAGE) {
         efi_status_t err = BS->handle_protocol(
             EFI_IMAGE, &efi_loaded_image_protocol_guid, (efi_handle_t*) &EFI_LOADED_IMAGE);
         if (EFI_ERROR(err)) {
-            EFI_DBG_MESSAGE("Could not get LoadedImageProtocol");
+            EFILIB_DBG_MESSAGE("Could not get LoadedImageProtocol");
             return;
         } else {
             _EFI_POOL_ALLOCATION = EFI_LOADED_IMAGE->image_data_type;
@@ -69,16 +81,16 @@ void initialize_library(
         err = BS->handle_protocol(
             EFI_LOADED_IMAGE->device_handle, &efi_simple_fs_protocol_guid, (efi_handle_t*) &fs);
         if (EFI_ERROR(err)) {
-            EFI_DBG_MESSAGE("Could not get SimpleFileSystemProtocol");
+            EFILIB_DBG_MESSAGE("Could not get SimpleFileSystemProtocol");
             return;
         } else {
             err = fs->open_volume(fs, &EFI_ROOT);
             if (EFI_ERROR(err)) {
-                EFI_DBG_MESSAGE("Could not open root directoy");
+                EFILIB_DBG_MESSAGE("Could not open root directoy");
             }
         }
     } else {
-        EFI_DBG_MESSAGE("EFI_IMAGE_HANDLE was empty");
+        EFILIB_DBG_MESSAGE("EFI_IMAGE_HANDLE was empty");
     }
 }
 

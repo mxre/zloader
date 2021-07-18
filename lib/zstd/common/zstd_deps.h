@@ -26,7 +26,8 @@
 
 #include <limits.h>
 #include <stddef.h>
-#include <efilib.h>
+
+#include <string.h>
 
 #define ZSTD_memcpy __builtin_memcpy 
 #define ZSTD_memmove __builtin_memmove
@@ -42,6 +43,7 @@
 #ifdef ZSTD_DEPS_NEED_MALLOC
 #ifndef ZSTD_DEPS_MALLOC
 #define ZSTD_DEPS_MALLOC
+#include <stdlib.h>
 
 #define ZSTD_malloc(s) malloc((s))
 #define ZSTD_calloc(n,s) calloc((n), (s))
@@ -70,8 +72,7 @@
 #ifdef ZSTD_DEPS_NEED_ASSERT
 #ifndef ZSTD_DEPS_ASSERT
 #define ZSTD_DEPS_ASSERT
-
-#define assert(c) ASSERT(c)
+#include <assert.h>
 
 #endif /* ZSTD_DEPS_ASSERT */
 #endif /* ZSTD_DEPS_NEED_ASSERT */
@@ -82,8 +83,9 @@
 #ifdef ZSTD_DEPS_NEED_IO
 #ifndef ZSTD_DEPS_IO
 #define ZSTD_DEPS_IO
+#include <stdio.h>
 
-#define ZSTD_DEBUG_PRINT(...) aprintf(__VA_ARGS__)
+#define ZSTD_DEBUG_PRINT(...) printf(__VA_ARGS__)
 
 #endif /* ZSTD_DEPS_IO */
 #endif /* ZSTD_DEPS_NEED_IO */

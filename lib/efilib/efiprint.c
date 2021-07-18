@@ -1,7 +1,18 @@
+/**
+ * @file efiprint.c
+ * @author Max Resch
+ * @brief printf implementation based on GNU-EFI Print function
+ * @version 0.1
+ * @date 2021-07-18
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ * @see https://github.com/rhboot/gnu-efi/blob/master/lib/print.c
+ */
 #include <efi.h>
 #include <efilib.h>
 
-#if EFI_PRINTF
+#if EFILIB_PRINTF
 
 #define PRINT_STRING_LEN            200
 #define PRINT_ITEM_BUFFER_LEN       100
@@ -26,10 +37,11 @@ struct _pitem {
     efi_size_t* width_parse;
     char16_t pad_char;
     bool pad_before;
-    bool is_long;
+    bool is_long;  /* is 64bit */ 
+    bool is_short; /* is 16 bit */
 };
 
-typedef efi_size_t (*output_string)(void* context, const char16_t* str);
+typedef efi_size_t (*output_string)(void* context, const char16_t* str, efi_size_t length);
 typedef efi_size_t (*output_setattr)(void* context, efi_size_t attr);
 
 struct print_state {
@@ -58,14 +70,6 @@ struct print_state {
     struct _pitem  *item;
 };
 
-static inline
-__attribute__((pure))
-uint64_t div64(uint64_t n, uint32_t d, uint64_t* r) {
-    if (r)
-        *r = n % d;
-    return n / d;
-}
-
 char16_t* value_to_string (
     char16_t* buffer,
     int64_t v
@@ -86,9 +90,9 @@ char16_t* value_to_string (
     }
 
     while (v) {
-        uint64_t r;
-        v = (int64_t) div64((uint64_t) v, 10, &r);
-        *(p1++) = (char16_t)r + u'0';
+        lldiv_t r = lldiv((uint64_t) v, 10);
+        *(p1++) = (char16_t)r.rem + u'0';
+        v = r.quot;
     }
 
     while (p1 != str) {
@@ -128,7 +132,7 @@ char16_t* value_to_hex_string(
     return p2;
 }
 
-#if EFI_FLOATING_POINT
+#if EFILIB_FLOATING_POINT
 char16_t* float_to_string (
     char16_t* buffer,
     double value
@@ -159,11 +163,11 @@ char16_t* float_to_string (
     }
     return value_to_string(p, (intptr_t) f);
 }
-#endif /* EFI_FLOATING_POINT */
+#endif /* EFILIB_FLOATING_POINT */
 
 char16_t* guid_to_string(
     char16_t* buffer,
-    efi_guid_t* guid
+    efi_guid_t guid
 ) {
     char16_t* p = buffer;
     for (uint8_t i = (sizeof(uint32_t) - 1) * 2; i--;)
@@ -212,64 +216,64 @@ char16_t* time_to_string(
     return value_to_string(p, time->second);
 }
 
-#if EFI_ERROR_MESSAGES
+#if EFILIB_ERROR_MESSAGES
 static struct {
     efi_status_t code;
     char16_t*    desc;
 } error_codes[] = {
-	{  EFI_SUCCESS,                u"Success"},
-	{  EFI_LOAD_ERROR,             u"Load Error"},
-	{  EFI_INVALID_PARAMETER,      u"Invalid Parameter"},
-	{  EFI_UNSUPPORTED,            u"Unsupported"},
-	{  EFI_BAD_BUFFER_SIZE,        u"Bad Buffer Size"},
-	{  EFI_BUFFER_TOO_SMALL,       u"Buffer Too Small"},
-	{  EFI_NOT_READY,              u"Not Ready"},
-	{  EFI_DEVICE_ERROR,           u"Device Error"},
-	{  EFI_WRITE_PROTECTED,        u"Write Protected"},
-	{  EFI_OUT_OF_RESOURCES,       u"Out of Resources"},
-	{  EFI_VOLUME_CORRUPTED,       u"Volume Corrupt"},
-	{  EFI_VOLUME_FULL,            u"Volume Full"},
-	{  EFI_NO_MEDIA,               u"No Media"},
-	{  EFI_MEDIA_CHANGED,          u"Media changed"},
-	{  EFI_NOT_FOUND,              u"Not Found"},
-	{  EFI_ACCESS_DENIED,          u"Access Denied"},
-	{  EFI_NO_RESPONSE,            u"No Response"},
-	{  EFI_NO_MAPPING,             u"No mapping"},
-	{  EFI_TIMEOUT,                u"Time out"},
-	{  EFI_NOT_STARTED,            u"Not started"},
-	{  EFI_ALREADY_STARTED,        u"Already started"},
-	{  EFI_ABORTED,                u"Aborted"},
-	{  EFI_ICMP_ERROR,             u"ICMP Error"},
-	{  EFI_TFTP_ERROR,             u"TFTP Error"},
-	{  EFI_PROTOCOL_ERROR,         u"Protocol Error"},
-	{  EFI_INCOMPATIBLE_VERSION,   u"Incompatible Version"},
-	{  EFI_SECURITY_VIOLATION,     u"Security Policy Violation"},
-	{  EFI_CRC_ERROR,              u"CRC Error"},
-	{  EFI_END_OF_MEDIA,           u"End of Media"},
-	{  EFI_END_OF_FILE,            u"End of File"},
-	{  EFI_INVALID_LANGUAGE,       u"Invalid Languages"},
-	{  EFI_COMPROMISED_DATA,       u"Compromised Data"},
+    {  EFI_SUCCESS,                u"Success"},
+    {  EFI_LOAD_ERROR,             u"Load Error"},
+    {  EFI_INVALID_PARAMETER,      u"Invalid Parameter"},
+    {  EFI_UNSUPPORTED,            u"Unsupported"},
+    {  EFI_BAD_BUFFER_SIZE,        u"Bad Buffer Size"},
+    {  EFI_BUFFER_TOO_SMALL,       u"Buffer Too Small"},
+    {  EFI_NOT_READY,              u"Not Ready"},
+    {  EFI_DEVICE_ERROR,           u"Device Error"},
+    {  EFI_WRITE_PROTECTED,        u"Write Protected"},
+    {  EFI_OUT_OF_RESOURCES,       u"Out of Resources"},
+    {  EFI_VOLUME_CORRUPTED,       u"Volume Corrupt"},
+    {  EFI_VOLUME_FULL,            u"Volume Full"},
+    {  EFI_NO_MEDIA,               u"No Media"},
+    {  EFI_MEDIA_CHANGED,          u"Media changed"},
+    {  EFI_NOT_FOUND,              u"Not Found"},
+    {  EFI_ACCESS_DENIED,          u"Access Denied"},
+    {  EFI_NO_RESPONSE,            u"No Response"},
+    {  EFI_NO_MAPPING,             u"No mapping"},
+    {  EFI_TIMEOUT,                u"Time out"},
+    {  EFI_NOT_STARTED,            u"Not started"},
+    {  EFI_ALREADY_STARTED,        u"Already started"},
+    {  EFI_ABORTED,                u"Aborted"},
+    {  EFI_ICMP_ERROR,             u"ICMP Error"},
+    {  EFI_TFTP_ERROR,             u"TFTP Error"},
+    {  EFI_PROTOCOL_ERROR,         u"Protocol Error"},
+    {  EFI_INCOMPATIBLE_VERSION,   u"Incompatible Version"},
+    {  EFI_SECURITY_VIOLATION,     u"Security Policy Violation"},
+    {  EFI_CRC_ERROR,              u"CRC Error"},
+    {  EFI_END_OF_MEDIA,           u"End of Media"},
+    {  EFI_END_OF_FILE,            u"End of File"},
+    {  EFI_INVALID_LANGUAGE,       u"Invalid Languages"},
+    {  EFI_COMPROMISED_DATA,       u"Compromised Data"},
 
-	// warnings
-	{  EFI_WARN_UNKNOWN_GLYPH,     u"Warning Unknown Glyph"},
-	{  EFI_WARN_DELETE_FAILURE,    u"Warning Delete Failure"},
-	{  EFI_WARN_WRITE_FAILURE,     u"Warning Write Failure"},
-	{  EFI_WARN_BUFFER_TOO_SMALL,  u"Warning Buffer Too Small"},
-	{  0, NULL}
+    // warnings
+    {  EFI_WARN_UNKNOWN_GLYPH,     u"Warning Unknown Glyph"},
+    {  EFI_WARN_DELETE_FAILURE,    u"Warning Delete Failure"},
+    {  EFI_WARN_WRITE_FAILURE,     u"Warning Write Failure"},
+    {  EFI_WARN_BUFFER_TOO_SMALL,  u"Warning Buffer Too Small"},
+    {  0, NULL}
 };
-#endif /* EFI_ERROR_MESSAGES */
+#endif /* EFILIB_ERROR_MESSAGES */
 
 char16_t* status_to_string(
     char16_t* buffer,
     efi_status_t status
 ) {
-#if EFI_ERROR_MESSAGES
+#if EFILIB_ERROR_MESSAGES
     for (size_t i = 0; error_codes[i].desc; i +=1) {
         if (error_codes[i].code == status) {
-	        return strcpy(buffer, error_codes[i].desc);
+	        return wcscpy(buffer, error_codes[i].desc);
         }
     }
-#endif /* EFI_ERROR_MESSAGES */
+#endif /* EFILIB_ERROR_MESSAGES */
     char16_t* p = buffer;
     for (uint8_t i = (sizeof(efi_status_t) - 1) * 2; i--;)
     if (status < 0x10 << i) (*p++) = u'0';
@@ -281,7 +285,7 @@ void ptr_flush(
     struct print_state* ps
 ) {
     *ps->pos = 0;
-    ps->output(ps->context, ps->buffer);
+    ps->output(ps->context, ps->buffer, ps->len - ((uint8_t*) ps->pos - (uint8_t*) ps->buffer));
     ps->pos = ps->buffer;
 }
 
@@ -384,35 +388,6 @@ void ptr_item (
     }
 }
 
-/*
-    %w.lF   -   w = width
-                l = field width
-                F = format of arg
-  Args F:
-    0       -   pad with zeros
-    -       -   justify on left (default is on right)
-    *       -   width provided on stack
-    n       -   Set output attribute to normal (for this field only)
-    h       -   Set output attribute to highlight (for this field only)
-    e       -   Set output attribute to error (for this field only)
-    l       -   Value is 64 bits
-    a       -   ascii string
-    s       -   unicode string
-    X       -   fixed 8 byte value in hex
-    x       -   hex value
-    d       -   value as signed decimal
-    u       -   value as unsigned decimal
-    f       -   value as floating point
-    c       -   Unicode char
-    t       -   EFI time structure
-    g       -   Pointer to GUID
-    r       -   EFI status code (result code)
-    D       -   pointer to Device Path with normal ending.
-    N       -   Set output attribute to normal
-    H       -   Set output attribute to highlight
-    E       -   Set output attribute to error
-    %       -   Print a %
- */
 efi_size_t _print(
     struct print_state* ps
 ) {
@@ -487,70 +462,106 @@ efi_size_t _print(
                     ps->fmt.index--;
                     break;
 
-                case 'a':
-                    item.fmt.pb = va_arg(ps->args, char8_t*);
-                    item.fmt.is_ascii = true;
-                    if (!item.fmt.pb) {
-                        item.fmt.pb = (char8_t*) "(null)";
-                    }
-                    break;
-
                 case 's':
-                    item.fmt.pu = va_arg(ps->args, char16_t*);
-                    if (!item.fmt.pu) {
-                        item.fmt.pu = u"(null)";
+                    if (item.is_long) { 
+                        item.fmt.pu = va_arg(ps->args, char16_t*);
+                        if (!item.fmt.pu) {
+                            item.fmt.pu = u"(null)";
+                        }
+                    } else {
+                        item.fmt.pb = va_arg(ps->args, char8_t*);
+                        item.fmt.is_ascii = true;
+                        if (!item.fmt.pb) {
+                            item.fmt.pb = (char8_t*) "(null)";
+                        }
                     }
                     break;
 
                 case 'c':
+                    /* should work for 8bit chars too */ 
                     item.scratch[0] = (char16_t) va_arg(ps->args, efi_size_t);
                     item.scratch[1] = 0;
                     item.fmt.pu = item.scratch;
+                    break;
+
+                case 'h':
+                    item.is_short = true;
                     break;
                 
                 case 'l':
                     item.is_long = true;
                     break;
 
-                case 'X':
-                    item.width = item.is_long ? 16 : 8;
-                    item.pad_char = u'0';
+                case 'z':
+                    item.is_long = sizeof(efi_size_t) == 8;
                     break;
+
+                case 'X':
+                    item.width =
+                        item.is_short ? 4  : 
+                        item.is_long  ? 16 : 8;
+                    item.pad_char = u'0';
 
                 [[ fallthrough ]];
                 case 'x':
-                    value_to_hex_string (
-                        item.scratch,
-                        item.is_long ? va_arg(ps->args, uint64_t) : va_arg(ps->args, uint32_t));
+                    if (item.is_short) {
+                        value_to_hex_string (
+                            item.scratch,
+                            (uint16_t) va_arg(ps->args, uint32_t)
+                        );
+                    } else {
+                        value_to_hex_string (
+                            item.scratch,
+                            item.is_long ?
+                                va_arg(ps->args, uint64_t) :
+                                va_arg(ps->args, uint32_t));
+                    }
                     item.fmt.pu = item.scratch;
                     break;
 
                 case 'g':
-                    guid_to_string (item.scratch, va_arg(ps->args, efi_guid_t*));
+                    guid_to_string (item.scratch, va_arg(ps->args, efi_guid_t));
                     item.fmt.pu = item.scratch;
                     break;
 
                 case 'u':
-                    value_to_string (
-                        item.scratch,
-                        item.is_long ? va_arg(ps->args, uint64_t) : va_arg(ps->args, uint32_t));
+                    if (item.is_short) {
+                        value_to_string (
+                            item.scratch,
+                            (uint16_t) va_arg(ps->args, int)
+                        );
+                    } else {
+                        value_to_string (
+                            item.scratch,
+                            item.is_long ?
+                                va_arg(ps->args, uint64_t) :
+                                va_arg(ps->args, uint32_t));
+                    }
                     item.fmt.pu = item.scratch;
                     break;
 
                 case 'i':
                 case 'd':
-                    value_to_string (
-                        item.scratch,
-                        item.is_long ? va_arg(ps->args, uint64_t) : va_arg(ps->args, int32_t));
+                if (item.is_short) {
+                        value_to_string (
+                            item.scratch,
+                            (uint16_t) va_arg(ps->args, int)
+                        );
+                    } else {
+                        value_to_string (
+                            item.scratch,
+                            item.is_long ?
+                                va_arg(ps->args, uint64_t) :
+                                va_arg(ps->args, uint32_t));
+                    }
                     item.fmt.pu = item.scratch;
                     break;
 
-#if EFI_FLOATING_POINT
+#if EFILIB_FLOATING_POINT
                 case 'f':
                     float_to_string (
                         item.scratch,
-                        va_arg(ps->args, double)
-                        );
+                        va_arg(ps->args, double));
                     item.fmt.pu = item.scratch;
                     break;
 #endif
@@ -569,7 +580,7 @@ efi_size_t _print(
                     ptr_setattr(ps, ps->attr_norm);
                     break;
 
-                case 'h':
+                case 'b':
                     ptr_setattr(ps, ps->attr_highlight);
                     break;
 
@@ -581,7 +592,7 @@ efi_size_t _print(
                     attr = ps->attr_norm;
                     break;
 
-                case 'H':
+                case 'B':
                     attr = ps->attr_highlight;
                     break;
 
@@ -590,7 +601,7 @@ efi_size_t _print(
                     break;
 
                 default:
-                    item.scratch[0] = u'?';
+                    item.scratch[0] = u'�';
                     item.scratch[1] = 0;
                     item.fmt.pu = item.scratch;
                     break;
@@ -633,12 +644,16 @@ efi_size_t _iprint(
     ps.context = out;
     ps.output = (output_string) out->output_string;
     ps.set_attr = (output_setattr) out->set_attribute;
-    ps.attr = out->mode->attribute;
+
+    /* some UEFI implementation do not store/provide console attributes */
+    ps.attr = out->mode->attribute
+        ? out->mode->attribute
+        : EFI_TEXT_ATTR(EFILIB_PRINT_NORMAL_COLOR, EFI_BACKGROUND_BLACK);
 
     ret = (ps.attr >> 4) & 0xf;
-    ps.attr_norm = EFI_TEXT_ATTR(EFI_LIGHTGRAY, ret);
-    ps.attr_highlight = EFI_TEXT_ATTR(EFI_WHITE, ret);
-    ps.attr_error = EFI_TEXT_ATTR(EFI_YELLOW, ret);
+    ps.attr_norm = EFI_TEXT_ATTR(EFILIB_PRINT_NORMAL_COLOR, ret);
+    ps.attr_highlight = EFI_TEXT_ATTR(EFILIB_PRINT_HIGHLIGHT_COLOR, ret);
+    ps.attr_error = EFI_TEXT_ATTR(EFILIB_PRINT_ERROR_COLOR, ret);
     
     if (fmt) {
         ps.fmt.pu = fmt;
@@ -656,4 +671,4 @@ efi_size_t _iprint(
     return ret;
 }
 
-#endif /* EFI_PRINTF */ 
+#endif /* EFILIB_PRINTF */ 

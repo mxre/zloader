@@ -6,9 +6,9 @@
 #include "capsule.h"
 
 struct efi_time_capabilities {
-    uint32_t resolution; /* 1e-6 parts per million */
-    uint32_t accuracy;   /* hertz */
-    bool sets_to_zero;   /* Set clears sub-second time */
+    uint32_t resolution; ///< 1e-6 parts per million
+    uint32_t accuracy;   ///< hertz
+    bool sets_to_zero;   ///< Set clears sub-second time
 };
 
 typedef struct efi_time_capabilities* efi_time_capabilities_t;
@@ -16,8 +16,8 @@ typedef struct efi_time_capabilities* efi_time_capabilities_t;
 /* Pointer Debug Disposition */
 
 #define EFI_OPTIONAL_PTR UINT32_C(0x00000001)
-#define EFI_INTERNAL_FNC UINT32_C(0x00000002)  /* Pointer to internal runtime fnc  */
-#define EFI_INTERNAL_PTR UINT32_C(0x00000004)  /* Pointer to internal runtime data */
+#define EFI_INTERNAL_FNC UINT32_C(0x00000002)  ///< Pointer to internal runtime fnc
+#define EFI_INTERNAL_PTR UINT32_C(0x00000004)  ///< Pointer to internal runtime data
 
 enum efi_reset_type {
     EFI_RESET_COLD,
@@ -27,7 +27,7 @@ enum efi_reset_type {
 
 typedef enum efi_reset_type efi_reset_type_t;
 
-#define EFI_RUNTIME_SERVICES_SIGNATURE UINT64_C(0x56524553544e5552) /* "RUNTSERV" */
+#define EFI_RUNTIME_SERVICES_SIGNATURE UINT64_C(0x56524553544e5552) ///< "RUNTSERV"
 
 typedef struct efi_runtime_services_table* efi_runtime_services_table_t;
 
@@ -48,12 +48,12 @@ struct efi_runtime_services_table  {
     efi_status_t (*get_wakeup_time) (
         bool* enabled,
         bool* pending,
-        efi_time_t* time
+        efi_time_t time
     );
 
     efi_status_t (*set_wakeup_time) (
         bool enabled,
-        const efi_time_t* time
+        const efi_time_t time
     );
 
     /* Virtual memory services */
@@ -74,7 +74,7 @@ struct efi_runtime_services_table  {
 
     efi_status_t (*get_variable) (
         const char16_t* variable_name,
-        const efi_guid_t* vendor_guid,
+        const efi_guid_t vendor_guid,
         uint32_t* attributes,
         efi_size_t* data_size,
         void* data
@@ -83,12 +83,12 @@ struct efi_runtime_services_table  {
     efi_status_t (*get_next_variable_name) (
         efi_size_t* variable_name_size,
         char16_t* variable_name,
-        efi_guid_t* VendorGuid
+        efi_guid_t vendor_guid
     );
 
     efi_status_t (*set_variable) (
         const char16_t* variable_name,
-        const efi_guid_t* vendor_guid,
+        const efi_guid_t vendor_guid,
         uint32_t attributes,
         efi_size_t data_size,
         const void* data

@@ -8,7 +8,7 @@
 #define EFI_SYSTEM_TABLE_SIGNATURE UINT64_C(0x5453595320494249) /* "IBI SYST" */
 
 struct efi_system_table {
-	struct efi_table_header header;
+	struct efi_table_header hdr;
 	char16_t* firmware_vendor;
 	uint32_t firmware_revision;
 	efi_handle_t console_in_handle;

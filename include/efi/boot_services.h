@@ -113,51 +113,51 @@ struct efi_boot_services_table {
 
         efi_status_t (*install_protocol_interface) (
 			efi_handle_t* handle,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
             efi_interface_t interface_type,
 			void *interface
         );
 
         efi_status_t (*reinstall_protocol_interface) (
             efi_handle_t handle,
-            efi_guid_t* protocol,
+            efi_guid_t protocol,
 			void* old_interface,
 			void* new_interface
         );
 
         efi_status_t (*uninstall_protocol_interface) (
 			efi_handle_t handle,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			void* interface
         );
         efi_status_t (*handle_protocol) (
 			efi_handle_t handle,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			void** interface
         );
 
         void *reserved;
 
         efi_status_t (*register_protocol_notify) (
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			efi_event_t event,
 			void** registration
         );
         efi_status_t (*locate_handle) (
 			efi_locate_search_t search_type,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			void *search_key,
 			efi_size_t* buffer_size,
 			efi_handle_t* buffer
         );
         efi_status_t (*locate_device_path) (
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			efi_device_path_t* device_path,
 			efi_handle_t* device
         );
 
         efi_status_t (*install_configuration_table) (
-			efi_guid_t* guid,
+			efi_guid_t guid,
 			void *table
         );
 
@@ -224,7 +224,7 @@ struct efi_boot_services_table {
 
         efi_status_t (*open_protocol) (
 			efi_handle_t handle,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			void** interface,
 			efi_handle_t agent_handle,
 			efi_handle_t controller_handle,
@@ -233,27 +233,27 @@ struct efi_boot_services_table {
 
         efi_status_t (*close_protocol) (
             efi_handle_t handle,
-            efi_guid_t* protocol,
+            efi_guid_t protocol,
             efi_handle_t agent_handle,
             efi_handle_t controller_handle
         );
 
         efi_status_t (*open_protocol_information) (
             efi_handle_t handle,
-            efi_guid_t* protocol,
+            efi_guid_t protocol,
             efi_protocol_information_entry_t* entry_buffer,
             efi_size_t *entry_count
         );
 
         efi_status_t (*protocols_per_handle) (
             efi_handle_t handle,
-            efi_guid_t*** protocol_buffer,
+            efi_guid_t** protocol_buffer,
             efi_size_t* protocol_buffer_count
         );
 
         efi_status_t (*locate_handle_buffer) (
 			efi_locate_search_t search_type,
-			efi_guid_t* protocol,
+			efi_guid_t protocol,
 			void* search_key,
 			efi_size_t * no_handles,
 			efi_handle_t ** buffer
@@ -300,7 +300,7 @@ struct efi_boot_services_table {
             efi_tpl_t notify_tpl,
             efi_event_notify notify_function,
             void *notify_context,
-            efi_guid_t* event_group,
+            efi_guid_t event_group,
             efi_event_t* event
         );
 };

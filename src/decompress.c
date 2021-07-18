@@ -1,224 +1,250 @@
 #include "decompress.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <efilib.h>
-#include <lz4.h>
-#include <lz4frame.h>
-#include <zstd.h>
-#include <zstd_errors.h>
-#include "util.h"
+#include <assert.h>
 
+#include "util.h"
+#include "pe.h"
+#include "minmax.h"
+
+#ifdef USE_LZ4
+# include <lz4.h>
+# include <lz4frame.h>
+#endif
+
+#if USE_ZSTD
+# include <zstd.h>
+# include <zstd_errors.h>
+
+/* Check that our buffer implementation is ABI compatible with ZSTD*/
+static_assert(
+    offsetof(struct simple_buffer, buffer) == offsetof(ZSTD_inBuffer, src) &&
+    offsetof(struct simple_buffer, length) == offsetof(ZSTD_inBuffer, size) &&
+    offsetof(struct simple_buffer, pos)    == offsetof(ZSTD_inBuffer, pos) &&
+    sizeof(struct simple_buffer) >= sizeof(ZSTD_inBuffer),
+    "'struct simple_buffer' is not compatible with ZSTD_inBuffer"
+);
+
+static_assert(
+    offsetof(struct simple_buffer, buffer) == offsetof(ZSTD_outBuffer, dst) &&
+    offsetof(struct simple_buffer, length) == offsetof(ZSTD_outBuffer, size) &&
+    offsetof(struct simple_buffer, pos)    == offsetof(ZSTD_outBuffer, pos) &&
+    sizeof(struct simple_buffer) >= sizeof(ZSTD_outBuffer),
+    "'struct simple_buffer' is not compatible with ZSTD_outBuffer"
+);
+#endif
+
+#ifdef USE_LZ4
 static inline
 efi_status_t decompress_lz4(
     efi_file_handle_t handle,
-    void* in_buffer,
-    size_t in_buffer_pos,
-    size_t in_buffer_size,
+    simple_buffer_t in,
+    size_t chunk_size,
     size_t in_total_size,
-    void** buffer,
-    size_t* buffer_size
+    simple_buffer_t out
 ) {
     efi_status_t err;
 
     LZ4F_dctx* ctx;
     err = LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
     if (LZ4F_isError(err)) {
-        printf(u"LZ4 error (%u): %a\n", -err, LZ4F_getErrorName(err));
+        _ERROR("LZ4 (%zu): %s", -err, LZ4F_getErrorName(err));
         return EFI_OUT_OF_RESOURCES;
     }
 
-    size_t total_in = in_buffer_pos;
-    size_t in_pos = in_buffer_pos;
-    size_t out_size;
     {
         LZ4F_frameInfo_t frame_info = { 0 };
-        err = LZ4F_getFrameInfo(ctx, &frame_info, in_buffer, &in_pos);
+        in->pos = in->length;
+        err = LZ4F_getFrameInfo(ctx, &frame_info, in->buffer, &in->pos);
         if (LZ4F_isError(err)) {
-            printf(u"LZ4 error (%u): %a\n", -err, LZ4F_getErrorName(err));
+            _ERROR("LZ4 (%zu): %s", -err, LZ4F_getErrorName(err));
             err = EFI_COMPROMISED_DATA;
             goto end;
         }
 
         if (!frame_info.contentSize) {
-            printf(u"LZ4 does not contain uncompressed size\n");
+            _ERROR("LZ4 does not contain uncompressed size");
             err = EFI_COMPROMISED_DATA;
             goto end;
         }
 
-        out_size = frame_info.contentSize;
+        out->allocated = frame_info.contentSize;
     }
 
-    void* out_buf = malloc(out_size);
-    _MESSAGE("allocated %u", out_size);
+    out->length = out->pos = 0;
+    out->buffer = malloc(out->allocated);
+    if (!out->buffer)
+        return EFI_OUT_OF_RESOURCES;
+
+
+    //ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
+    //clear_screen();
+    //ST->out->set_cursor_position(ST->out, 0, 0);
+    //print(u"decompress:");
 
     size_t result = 0;
-    size_t out_pos = 0;
-
-    ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
-    clear_screen();
-    ST->out->set_cursor_position(ST->out, 0, 0);
-    print(u"decompress:");
-
+    size_t total_in = in->length;
     do {
-        while (in_pos < in_buffer_pos) {
-            size_t out_end = out_size - out_pos;
-            size_t in_end = in_buffer_pos - in_pos;
-            result = LZ4F_decompress(ctx, (uint8_t*) out_buf + out_pos, &out_end, (uint8_t*) in_buffer + in_pos, &in_end, NULL);
+        while (in->pos < in->length) {
+            size_t out_end = out->allocated - out->pos;
+            size_t in_end = in->length - in->pos;
+            result = LZ4F_decompress(ctx, buffer_pos(out), &out_end, buffer_pos(in), &in_end, NULL);
             if (LZ4F_isError(result)) {
-                printf(u"LZ4 error (%u): %a\n", -result, LZ4F_getErrorName(result));
+                _ERROR("LZ4 (%zu): %s", -result, LZ4F_getErrorName(result));
                 err = EFI_COMPROMISED_DATA;
                 goto end;
             }
-            in_pos += in_end;
-            out_pos += out_end;
-            printf_at(12, 0, u"%3.4f%%", (((double) out_pos) / ((double) out_size)) * 100.0);
+            in->pos += in_end;
+            out->length = out->pos += out_end;
+            //printf_at(12, 0, u"%3.4f%%", (((double) out_pos) / ((double) out_size)) * 100.0);
         }
 
         if (total_in == in_total_size) {
             break;
         } else {
-            size_t size = in_buffer_size;
-            err = handle->read(handle, &size, (uint8_t*) in_buffer);
+            in->length = chunk_size;
+            err = handle->read(handle, &in->length, in->buffer);
             if (EFI_ERROR(err)) {
-                printf(u"Unable to read file: %r\n", err);
+                _ERROR("Unable to read file: %r", err);
                 goto end;
             }
 
             /* reached input end */
-            if (size == 0) {
+            if (in->length == 0) {
                 break;
             }
 
-            in_pos = 0;
-            total_in += size;
-            in_buffer_pos = size;
+            total_in += in->length;
+            in->pos = 0;
         }
-    } while(1);
+    } while(true);
 
-    printf_at(12, 0, u" done\n");
+    //printf_at(12, 0, u" done\n");
     
     if (result)
-        printf(u"EOF before end of stream: %u\n", result);
+        _ERROR("EOF before end of stream: %zu", result);
     
-    printf(u"in = %u out = %u\n", total_in, out_pos);
+    _MESSAGE("in = %zu out = %zu", total_in, out->length);
 end:
     LZ4F_freeDecompressionContext(ctx);
 
     if (EFI_ERROR(err)) {
-        free(out_buf);
-        *buffer = NULL;
+        free(out->buffer);
+        out->allocated = 0;
+        out->buffer = NULL;
     } else {
-        *buffer = out_buf;
-        *buffer_size = out_pos;
+        out->pos = 0;
     }
 
     return err;
 }
+#endif /* USE_LZ4 */
 
+#ifdef USE_ZSTD
 static inline
 efi_status_t decompress_zstd(
     efi_file_handle_t handle,
-    void* in_buffer,
-    size_t in_buffer_pos,
-    size_t in_buffer_size,
+    simple_buffer_t in,
+    size_t chunk_size,
     size_t in_total_size,
-    void** buffer,
-    size_t* buffer_size
+    simple_buffer_t out
 ) {
     efi_status_t err;
 
-    size_t out_size = ZSTD_getFrameContentSize(in_buffer, in_buffer_pos);
-    if (out_size == ZSTD_CONTENTSIZE_ERROR || out_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-        printf(u"ZSTD can't determine content size: %u\n", -out_size);
+    out->allocated = ZSTD_getFrameContentSize(in->buffer, in->length);
+    if (out->allocated == ZSTD_CONTENTSIZE_ERROR || out->allocated == ZSTD_CONTENTSIZE_UNKNOWN) {
+        _ERROR("ZSTD can't determine content size: %zu", -out->allocated);
+        out->allocated = 0;
         return EFI_COMPROMISED_DATA;
     }
 
-    void* out_buf = malloc(out_size);
-    if (!out_buf) {
+    out->pos = 0;
+    out->buffer = malloc(out->allocated);
+    if (!out->buffer)
         return EFI_OUT_OF_RESOURCES;
-    }
 
     ZSTD_DStream* zstream = ZSTD_createDStream();
     if (!zstream) {
-        free(out_buf);
+        free(out->buffer);
         return EFI_OUT_OF_RESOURCES;
     }
 
-    ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
-    clear_screen();
-    ST->out->set_cursor_position(ST->out, 0, 0);
-    print(u"decompress:");
-
-    ZSTD_inBuffer in = { .src = in_buffer, .size = in_buffer_pos, .pos = 0 };
-    ZSTD_outBuffer out = { .dst = out_buf, .size = out_size, .pos = 0 };
+    //ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
+    //clear_screen();
+    //ST->out->set_cursor_position(ST->out, 0, 0);
+    //print(u"decompress:");
 
     size_t result = 0;
-    size_t total_in = in_buffer_pos;
+    size_t total_in = in->length;
+    out->length = out->allocated;
     do {
-        while (in.pos < in.size) {
-            result = ZSTD_decompressStream(zstream, &out, &in);
+        while (in->pos < in->length) {
+            result = ZSTD_decompressStream(zstream, (ZSTD_outBuffer*) out, (ZSTD_inBuffer*) in);
             if (ZSTD_isError(result)) {
-                printf(u"ZSTD error (%u): %a\n", ZSTD_getErrorCode(result), ZSTD_getErrorName(result));
+                _ERROR("ZSTD (%zu): %s", ZSTD_getErrorCode(result), ZSTD_getErrorName(result));
                 err = EFI_COMPROMISED_DATA;
                 goto end;
             }
 
-            printf_at(12, 0, u"%3.4f%%", (((double) out.pos) / ((double) out.size)) * 100.0);
+            //printf_at(12, 0, u"%3.4f%%", (((double) out.pos) / ((double) out.size)) * 100.0);
         }
 
         /* input end */
         if (total_in == in_total_size) {
             break;
         } else {
-            size_t size = in_buffer_size;
-            err = handle->read(handle, &size, in_buffer);
+            in->length = chunk_size;
+            err = handle->read(handle, &in->length, in->buffer);
             if (EFI_ERROR(err)) {
-                printf(u"Unable to read file: %r\n", err);
+                _ERROR("Unable to read file: %r", err);
                 goto end;
             }
 
             /* reached input end */
-            if (size == 0) {
+            if (in->length == 0)
                 break;
-            }
-            
-            total_in += size;
-            in.pos = 0;
-            in.size = size;
+
+            total_in += in->length;
+            in->pos = 0;
         }
     } while(true);
 
-    printf_at(12, 0, u" done\n");
+    //printf_at(12, 0, u" done\n");
 
     if (result)
-        printf(u"EOF before end of stream: %u\n", result);
+        _ERROR("EOF before end of stream: %zu", result);
     
-    printf(u"in = %u out = %u\n", total_in, out.pos);
+    _MESSAGE("in = %zu out = %zu", total_in, out->length);
 end:
     ZSTD_freeDStream(zstream);
 
     if (EFI_ERROR(err)) {
-        free(out_buf);
-        *buffer = NULL;
+        free(out->buffer);
+        out->allocated = 0;
+        out->buffer = NULL;
     } else {
-        *buffer = out_buf;
-        *buffer_size = out.pos;
+        out->pos = 0;
     }
 
     return err;
 }
+#endif /* USE_ZSTD */
+
+#define CHUNK_SIZE (256 * 1024)
 
 efi_status_t decompress_file(
     efi_file_handle_t handle,
-    void** buffer,
-    size_t* buffer_size
+    simple_buffer_t buffer
 ) {
     efi_status_t err = EFI_SUCCESS;
 
-    if (!buffer || !buffer_size)
+    if (!buffer)
         return EFI_INVALID_PARAMETER;
-    *buffer_size = 0;
-    if (*buffer)
-        return EFI_INVALID_PARAMETER;
+    if (buffer->buffer || buffer->length || buffer->pos)
+        return EFI_ALREADY_STARTED;
 
     efi_file_info_t info = lib_get_file_info(handle);
     if (!info)
@@ -226,31 +252,54 @@ efi_status_t decompress_file(
     efi_size_t file_size = info->file_size;
     free(info);
 
-    size_t in_size = ZSTD_DStreamInSize();
-    in_size = (in_size < file_size) ? in_size : file_size;
-    _MESSAGE("buffer: %u file: %u", in_size, file_size);
+    size_t chunk_size = CHUNK_SIZE; /* use chunked loading */
+    chunk_size = MIN(chunk_size, file_size);
+    _MESSAGE("buffer: %zu file: %zu", chunk_size, file_size);
 
-    _cleanup_pool void* buf = malloc(in_size);
-    size_t size = in_size;
-    err = handle->read(handle, &size, buf);
+    _cleanup_buffer struct simple_buffer in = allocate_simple_buffer(chunk_size);
+    if (!in.buffer)
+        return EFI_OUT_OF_RESOURCES;
+    
+    in.length = chunk_size;
+    err = handle->read(handle, &in.length, in.buffer);
     if (EFI_ERROR(err)) {
-        printf(u"Unable to read file: %r\n", err);
+        _ERROR("Unable to read file: %r", err);
         return err;
     }
 
-    _MESSAGE("read: %u", size);
-
-    if ((*(uint32_t*) buf) == ZSTD_MAGICNUMBER) {
-        return decompress_zstd(
-            handle, buf, size, in_size, file_size,
-            buffer, buffer_size
-        );
-    } else if ((*(uint32_t*) buf) == LZ4_MAGICNUMBER) {
-        return decompress_lz4(
-            handle, buf, size, in_size, file_size,
-            buffer, buffer_size
-        );
+#ifdef USE_ZSTD
+    if ((*(uint32_t*) buffer_pos(&in)) == ZSTD_MAGICNUMBER) {
+        _MESSAGE("detected ZSTD compressed data");
+        return decompress_zstd(handle, &in, chunk_size, file_size, buffer);
+    } else
+#endif
+#ifdef USE_LZ4
+    if ((*(uint32_t*) buffer_pos(&in)) == LZ4_MAGICNUMBER) {
+        _MESSAGE("detected LZ4 compressed data");
+        return decompress_lz4(handle, &in, chunk_size, file_size, buffer);
+    } else
+#endif
+    /* directly load an uncompressed executable */
+    if (PE_header(&in) > 0) {
+        _MESSAGE("detected EFI executable");
+        buffer->buffer = malloc(file_size);
+        if (!buffer->buffer)
+            return EFI_OUT_OF_RESOURCES;
+        buffer->pos = 0;
+        memcpy(buffer_pos(buffer), buffer_pos(&in), in.length - in.pos);
+        buffer->pos = buffer->length = in.length - in.pos;
+        chunk_size = file_size - buffer->length;
+        err = handle->read(handle, &chunk_size, buffer_pos(buffer));
+        if (EFI_ERROR(err)) {
+            _ERROR("Unable to read file: %r", err);
+            return err;
+        }
+        buffer->length += chunk_size;
+        buffer->pos = 0; 
+        _MESSAGE("in = %zu out = %zu", file_size, buffer->length);
+        return EFI_SUCCESS;
     } else {
+        _MESSAGE("unsupported file format: %X", (*(uint32_t*) buffer_pos(&in)));
         return EFI_UNSUPPORTED;
     }
 }

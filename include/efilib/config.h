@@ -1,5 +1,5 @@
 #pragma once
 
-#define EFI_PRINTF 1
-#define EFI_ERROR_MESSAGES 1
-#define EFI_FLOATING_POINT 1
+#define EFILIB_PRINTF 1
+#define EFILIB_ERROR_MESSAGES 1
+#define EFILIB_FLOATING_POINT 1

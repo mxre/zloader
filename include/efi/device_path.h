@@ -27,7 +27,13 @@ typedef struct efi_device_path_protocol* efi_device_path_t;
 		(a)->length[1] = 0; \
 	}
 
+/*==========================================================================*
+ *  Hardware Device Path
+ *==========================================================================*/
+
 #define HARDWARE_DEVICE_PATH            0x01
+
+/* Memory Device */
 
 #define HW_MEMMAP_DP                    0x03
 struct efi_memory_device_path {
@@ -38,3 +44,13 @@ struct efi_memory_device_path {
 };
 
 typedef struct efi_memory_device_path* efi_memory_device_path_t;
+
+/* Vendor Device */
+
+#define HW_VENDOR_DP                    0x04
+struct efi_vendor_device_path {
+    struct efi_device_path_protocol hdr;
+    struct efi_guid guid;
+};
+
+typedef struct efi_vendor_device_path* efi_vendor_device_path;

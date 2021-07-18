@@ -96,14 +96,14 @@ struct efi_file_protocol {
 
     efi_status_t (*get_info) (
         efi_file_handle_t self,
-        efi_guid_t* type,
+        efi_guid_t type,
         efi_size_t* size,
         void* buffer
     );
 
     efi_status_t (*set_info) (
         efi_file_handle_t self,
-        efi_guid_t* type,
+        efi_guid_t type,
         efi_size_t size,
         void* buffer
     );
