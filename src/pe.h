@@ -54,7 +54,7 @@ efi_size_t PE_header(simple_buffer_t buffer) {
     assert(buffer->buffer);
 
     /* has MZ magic and is large enough for MSDOS header */
-    if (*(uint16_t*) buffer_pos(buffer) == MZ_DOS_SIGNATURE && buffer_len(buffer) > 0x40) {
+    if (*(uint16_t*) buffer_pos(buffer) == MZ_DOS_SIGNATURE && buffer_len(buffer) > (DOS_PE_OFFSET_LOCATION + sizeof(uint32_t))) {
         uint32_t pe_offset = *(uint32_t*)(buffer_pos(buffer) + DOS_PE_OFFSET_LOCATION);
         /* check if large enough for PE header */
         if (buffer_len(buffer) > (pe_offset + sizeof(struct PE_image_headers))) {

@@ -44,7 +44,7 @@
 
 #include <string.h> /* memcpy */
 
-typedef union packed { uint32_t u32; uint64_t u64; } unalign;
+typedef union __packed { uint32_t u32; uint64_t u64; } unalign;
 
 static inline uint32_t XXH_read32(const void* ptr) { return ((const unalign*)ptr)->u32; }
 static inline uint64_t XXH_read64(const void* ptr) { return ((const unalign*)ptr)->u64; }

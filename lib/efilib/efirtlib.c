@@ -48,7 +48,7 @@ void free(void* p) {
 #ifdef memmove
 #undef memmove
 #endif
-[[ gnu::weak ]]
+__weak__
 void* memmove (
     void* dst,
     const void* src,
@@ -63,15 +63,12 @@ void* memmove (
         return memcpy(dst, src, size);
     else {
         void* tmp = malloc(size);
-        if (tmp) {
-            memcpy(tmp, src, size);
-            memcpy(dst, tmp, size);
-            free(tmp);
-            return dst;
-        } else {
-            /* just hope for the best */
-            return memcpy(dst, src, size);
-        }
+        EFILIB_ASSERT(tmp); // OOM
+
+        memcpy(tmp, src, size);
+        memcpy(dst, tmp, size);
+        free(tmp);
+        return dst;
     }
 #endif
 }
@@ -79,7 +76,7 @@ void* memmove (
 #ifdef memcpy
 #undef memcpy
 #endif
-[[ gnu::weak ]]
+__weak__
 void* memcpy (
     void* dst,
     const void* src,
@@ -101,7 +98,7 @@ void* memcpy (
 #ifdef memcmp
 #undef memcmp
 #endif
-[[ gnu::weak ]]
+__weak__
 int memcmp (
     const void* a,
     const void* b,

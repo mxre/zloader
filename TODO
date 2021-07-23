@@ -1,2 +1,4 @@
 add UEFI variable handling
 cleanup makefile
+GUID format fix according to specs
+exit OOM conditions in library

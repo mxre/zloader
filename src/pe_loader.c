@@ -36,7 +36,7 @@ struct pe_loader_ctx {
 
 typedef struct pe_loader_ctx* pe_loader_ctx_t;
 
-[[ gnu::const ]]
+__constexp
 static inline
 bool allow_32bit() {
 #if defined(__i386__) || defined(__arm__) || (defined(__riscv) && __riscv_xlen == 32)
@@ -46,7 +46,7 @@ bool allow_32bit() {
 #endif
 }
 
-[[ gnu::const ]]
+__constexp
 static inline
 bool allow_64bit() {
 #if defined(__x86_64__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
@@ -75,7 +75,7 @@ bool allow_64bit() {
  * @return void*
  *  `image + address`, if in bounds or NULL
  */
-[[ gnu::pure ]]
+__pure
 static inline 
 void* image_address (const void *image, uint64_t size, uint64_t address) {
     /* address outside of image */
@@ -111,34 +111,34 @@ efi_status_t is_loadable(
 
     /* I did not test bigendian so better just disallow it */
     if ((pe->file_header.characteristics & (PE_HEADER_BYTES_REVERSED_LO | PE_HEADER_BYTES_REVERSED_HI))) {
-        _ERROR("Image unsupported - Image is BigEndian");
+        _MESSAGE("Image unsupported - Image is BigEndian");
         return EFI_UNSUPPORTED;
     }
 
     if (pe->file_header.machine != PE_HEADER_MACHINE_NATIVE) {
-        _ERROR("Image unsupported - Machine type for this platform %hX != %hX", pe->file_header.machine, PE_HEADER_MACHINE_NATIVE);
+        _MESSAGE("Image unsupported - Machine type for this platform %hX != %hX", pe->file_header.machine, PE_HEADER_MACHINE_NATIVE);
         return EFI_UNSUPPORTED;
     }
 
     if (!(pe->file_header.characteristics & (PE_HEADER_EXECUTABLE_IMAGE | PE_HEADER_DLL))) {
-        _ERROR("Image unsupported - not a loadable PE file");
+        _MESSAGE("Image unsupported - not a loadable PE file");
         return EFI_UNSUPPORTED;
     }
 
     /* relocation information is necessary */
     if ((pe->file_header.characteristics & PE_HEADER_RELOCS_STRIPPED)) {
-        _ERROR("Image unsupported - stripped of relocations");
+        _MESSAGE("Image unsupported - stripped of relocations");
         return EFI_UNSUPPORTED;
     }
 
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         if (!allow_32bit()) {
-            _ERROR("32-bit executable not supported");
+            _MESSAGE("32-bit executable not supported");
             return EFI_UNSUPPORTED;
         }
     } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
         if (!allow_64bit()) {
-            _ERROR("64-bit executable not supported");
+            _MESSAGE("64-bit executable not supported");
             return EFI_UNSUPPORTED;
         }
     } else {
@@ -446,7 +446,7 @@ efi_status_t relocation_fixup(
 }
 
 /* unload a image loaded by PE_handle_image */
-static
+efi_api static
 efi_status_t __unload_pe_file(
     efi_handle_t image
 ) {
@@ -503,6 +503,9 @@ efi_status_t PE_handle_image(
 ) {
     efi_status_t err;
 
+    assert(EFI_IMAGE);
+    assert(EFI_LOADED_IMAGE);
+
     if (!data || !image || !loaded_image || !entry_point)
         return EFI_INVALID_PARAMETER;
     if (!data->buffer || buffer_len(data) == 0 )
@@ -524,7 +527,8 @@ efi_status_t PE_handle_image(
     efi_size_t allocated_pages = alloc_size / PAGE_SIZE;
 
     efi_physical_address_t allocated_address;
-    err = BS->allocate_pages(EFI_ALLOCATE_ANY_PAGES, EFI_LOADER_CODE, allocated_pages, &allocated_address);
+    err = BS->allocate_pages(
+        EFI_ALLOCATE_ANY_PAGES, EFI_LOADER_CODE, allocated_pages, &allocated_address);
     if (EFI_ERROR(err)) {
         return EFI_OUT_OF_RESOURCES;
     }
@@ -563,28 +567,14 @@ efi_status_t PE_handle_image(
         }
     }
 
-    /* struct to build device path */
-    struct __packed memory_mapped_device_path {
-        struct efi_memory_device_path memmap;
-        struct efi_device_path_protocol end;
-    };
-
     /* create device path for memory mapped file */
-    struct memory_mapped_device_path* dp = malloc(sizeof(struct memory_mapped_device_path));
+    efi_device_path_t dp = create_memory_mapped_device_path(
+        allocated_address,  allocated_pages * PAGE_SIZE, EFI_LOADER_CODE);
+
     if (!dp) {
         BS->free_pages(allocated_address, allocated_pages);
         return EFI_OUT_OF_RESOURCES;
     }
-    struct memory_mapped_device_path _dp = {
-        .memmap = {
-            .hdr = { HARDWARE_DEVICE_PATH, HW_MEMMAP_DP, sizeof(struct efi_memory_device_path) },
-            .memory_type = EFI_LOADER_CODE,
-            .start = (efi_physical_address_t) allocated_address,
-	        .end = (efi_physical_address_t) allocated_address + allocated_pages * PAGE_SIZE
-        },
-        .end = { END_DEVICE_PATH_TYPE, END_ENTIRE_DEVICE_PATH_SUBTYPE, sizeof(struct efi_device_path_protocol) }
-    };
-    *dp = _dp;
 
     *loaded_image = malloc(sizeof(struct efi_loaded_image_protocol));
     if (!*loaded_image) {
@@ -599,12 +589,12 @@ efi_status_t PE_handle_image(
         .parent_handle = EFI_IMAGE,
         .system_table = ST,
         .device_handle = EFI_LOADED_IMAGE->device_handle,
-        .file_path = (efi_device_path_t) dp,
+        .file_path = dp,
         .reserved = NULL,
         .image_base = buffer,
         .image_size = ctx.size_of_image,
         .image_code_type = EFI_LOADER_CODE,
-        .image_data_type = EFI_LOADER_CODE,
+        .image_data_type = EFI_LOADER_CODE, /* everything is located in the same memory allocation*/
         .unload = __unload_pe_file
     };
     **loaded_image = _lp;

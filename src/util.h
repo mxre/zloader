@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define _cleanup(f) __attribute__((cleanup(f)))
+#if __has_c_attribute(gnu::cleanup)
+#  define _cleanup(f) [[ gnu::cleanup(f) ]]
+#else
+#  define _cleanup(f) __attribute__((cleanup(f)))
+#endif
 
 static inline
 void close_file_p(efi_file_handle_t* handle) {
@@ -82,4 +86,19 @@ void free_simple_buffer(simple_buffer_t buffer) {
 efi_status_t write_simple_buffer_to_file(
     char16_t* filename,
     const simple_buffer_t buffer
+);
+
+/**
+ * @brief Create XXH64 hash for buffer contents
+ * 
+ * @param buffer 
+ * @returns XXH64 hash
+ * @returns -1 on ERROR
+ */
+uint64_t buffer_xxh64(simple_buffer_t buffer);
+
+efi_device_path_t create_memory_mapped_device_path(
+    efi_physical_address_t address,
+    efi_size_t size,
+    efi_memory_t type
 );

@@ -1,29 +1,25 @@
 #include <efilib.h>
 
+#include "config.h"
 #include "decompress.h"
 #include "util.h"
 #include "pe.h"
 #include "initrd.h"
+#include "systemd.h"
 
-#include <xxhash.h>
-
-[[ maybe_unused ]]
 static inline
-void print_hash(simple_buffer_t buffer) {
-    if (!buffer->buffer)
-        return;
-    struct xxh64_state xs = { 0 };
-    xxh64_reset(&xs, 0);
-    if (xxh64_update(&xs, buffer_pos(buffer), buffer_len(buffer))) {
-        _ERROR("XXH64_ERR");
-    }
-    _MESSAGE("checksum %blX", xxh64_digest(&xs));
+void stall_on_exit() {
+#ifdef EFILIB_STALL_ON_EXIT
+    stall(EFILIB_STALL_ON_EXIT);
+#endif
 }
 
 #if USE_EFI_LOAD_IMAGE
 static inline
 efi_status_t image_start(efi_handle_t* image, simple_buffer_t options) {
     efi_status_t err;
+    assert(BS);
+    assert(EFI_IMAGE);
 
     efi_loaded_image_t loaded_image = NULL;
     if (buffer_len(options)) {
@@ -55,22 +51,10 @@ efi_status_t execute_image_from_memory(
     efi_status_t err;
 
 #if USE_EFI_LOAD_IMAGE
-    struct __packed memory_mapped_device_path {
-        struct efi_memory_device_path memmap;
-        struct efi_device_path_protocol end;
-    };
+    assert(BS);
+    assert(EFI_IMAGE);
 
-    struct memory_mapped_device_path* dp = malloc(sizeof(struct memory_mapped_device_path));
-    struct memory_mapped_device_path _dp = {
-        .memmap = {
-            .hdr = { HARDWARE_DEVICE_PATH, HW_MEMMAP_DP, sizeof(struct efi_memory_device_path) },
-            .memory_type = EFI_LOADER_CODE,
-            .start = (efi_physical_address_t) buffer_pos(buffer),
-	        .end = (efi_physical_address_t) buffer_pos(buffer) + buffer_len(buffer)
-        },
-        .end = { END_DEVICE_PATH_TYPE, END_ENTIRE_DEVICE_PATH_SUBTYPE, sizeof(struct efi_device_path_protocol) }
-    };
-    *dp = _dp;
+    efi_device_path_t dp = create_memory_mapped_device_path(buffer_pos(buffer), buffer_len(buffer), _EFI_POOL_ALLOCATION);
     
     efi_handle_t image;
     err = BS->load_image(false, EFI_IMAGE, (efi_device_path_t) dp, buffer_pos(buffer), buffer_len(buffer), &image);
@@ -96,7 +80,6 @@ efi_status_t execute_image_from_memory(
             loaded_image->load_options_size = buffer_len(options);
         }
         // ST->out->reset(ST->out, false);
-        /* may not return */
         err = entry_point(image, ST);
 
         loaded_image->unload(image);
@@ -106,13 +89,37 @@ efi_status_t execute_image_from_memory(
     return err;
 }
 
+efi_api
 efi_status_t efi_main(
     efi_handle_t image,
     efi_system_table_t sys_table
 ) {
     initialize_library(image, sys_table);
     _MESSAGE("program begin");
+
+    assert(EFI_LOADED_IMAGE);
+
     efi_status_t err = EFI_SUCCESS;
+    bool secure_boot = false;
+    {
+        uint32_t attributes;
+        efi_size_t data_size = 1;
+        uint8_t data[data_size];
+        err = RT->get_variable(u"SecureBoot", &efi_global_variable_guid, &attributes, &data_size, &data);
+        if (EFI_ERROR(err)) {
+            _ERROR("GetVariable {%g} %ls %r", &efi_global_variable_guid, u"SecureBoot", err);
+            return err;
+        }
+        secure_boot = data[0] == 1;
+    }
+    if (secure_boot)
+        _MESSAGE("Running in SECURE mode");
+
+    err = RT->set_variable(u"StubInfo", &loader_guid, EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+        wcslen(_u(PROGRAM_NAME) u" " _u(PROGRAM_VERSION)) * sizeof(char16_t), _u(PROGRAM_NAME) u" " _u(PROGRAM_VERSION));
+    if (EFI_ERROR(err)) {
+        _ERROR("SetVariable {%g} %ls %r", &loader_guid, u"StubInfo", err);
+    }
 
     /* get the relevant sections from the image */
     struct PE_locate_sections sections[] = {
@@ -138,7 +145,13 @@ efi_status_t efi_main(
     }
 
     _cleanup_buffer struct simple_buffer options = { 0 };
-    if (sections[SECTION_CMDLINE].load_address) {
+    
+    /* get cmdline from arguments or from internal cmdline section */
+    if (EFI_LOADED_IMAGE->load_options_size > 0 && !secure_boot) {
+        options.buffer = EFI_LOADED_IMAGE->load_options;
+        options.length = EFI_LOADED_IMAGE->load_options_size;
+        _MESSAGE("use supplied cmdline: %.*ls", options.length / (sizeof(char16_t)), (char16_t*) options.buffer);
+    } else if (sections[SECTION_CMDLINE].load_address) {
         options = allocate_simple_buffer((sections[SECTION_CMDLINE].size + 1)* sizeof(char16_t));
         efi_size_t length = mbstowcs((char16_t*) options.buffer, (const char*) EFI_LOADED_IMAGE->image_base + sections[SECTION_CMDLINE].load_address, sections[SECTION_CMDLINE].size);
         options.length = length * sizeof(char16_t);
@@ -152,9 +165,8 @@ efi_status_t efi_main(
         };
 
         _MESSAGE("embedded initrd found: size: %zu", initrd.length);
-#if DEBUG
-        print_hash(&initrd);
-#endif
+        _MESSAGE("initrd hash %blX", buffer_xxh64(&initrd));
+
         err = initrd_register(&initrd);
         if (EFI_ERROR(err)) {
             _ERROR("Failed to register initrd handler");
@@ -183,9 +195,8 @@ efi_status_t efi_main(
         "decompress took %b.3f ms %b.3f MiB/s",
         time / 1000.0,
         (decompressed_kernel.length * 1024 * 1024) / (time / 1000000.0));
-#if DEBUG
-    print_hash(&decompressed_kernel);
-#endif
+    _MESSAGE("kernel hash %blX", buffer_xxh64(&decompressed_kernel));
+
     err = execute_image_from_memory(&decompressed_kernel, &options);
     if (EFI_ERROR(err)) {
         _ERROR("ImageLoad Error: %r", err);
@@ -198,8 +209,6 @@ end:
     _MESSAGE("system is now shutting down");
     RT->reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
 #endif
-#ifdef EFILIB_STALL_ON_EXIT
-    stall(EFILIB_STALL_ON_EXIT);
-#endif
+    stall_on_exit();
     return err;
 }

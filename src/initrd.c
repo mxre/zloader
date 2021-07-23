@@ -34,6 +34,7 @@ static const struct __packed efi_initrd_device_path {
     .end = {  END_DEVICE_PATH_TYPE, END_ENTIRE_DEVICE_PATH_SUBTYPE, sizeof(efi_initrd_device_path.end) }
 };
 
+efi_api
 efi_status_t fl2_load_file(
     efi_load_file_protocol_t this,
     efi_device_path_t file_path,
@@ -86,6 +87,17 @@ efi_status_t fl2_load_file(
 
 static efi_handle_t initrd_handle = NULL;
 
+#if 0 /* use this too hook into the kernel procedure used for finding the initrd handle */
+typedef efi_api efi_status_t (*locate_device_path_t)(efi_guid_t,efi_device_path_t*, efi_handle_t*);
+static locate_device_path_t __locate_device_path;
+
+efi_api efi_status_t locate_device_path(efi_guid_t guid, efi_device_path_t* dp, efi_handle_t* h) {
+    efi_status_t err =  __locate_device_path(guid, dp, h);
+    _MESSAGE("{%g} %r", guid, err);
+    return err;
+}
+#endif
+
 efi_status_t initrd_register(
     simple_buffer_t _initrd
 ) {
@@ -104,6 +116,11 @@ efi_status_t initrd_register(
     if (err != EFI_NOT_FOUND) {
         _MESSAGE("initrd media device path already registered");
     }
+
+#if 0 /* override locate_device_path */
+    __locate_device_path = BS->locate_device_path;
+    BS->locate_device_path = locate_device_path;
+#endif
     
     memcpy(&initrd, _initrd, sizeof(struct simple_buffer));
     err = BS->install_multiple_protocol_interfaces(

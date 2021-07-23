@@ -24,7 +24,11 @@
 #include <stddef.h>
 #include "zstd_deps.h"
 
-#define MEM_STATIC [[ maybe_unused, gnu::always_inline ]] static inline
+#if __has_c_attribute(maybe_unused) && __has_c_attribute(gnu::always_inline)
+#  define MEM_STATIC [[ maybe_unused, gnu::always_inline ]] static inline
+#else
+#  define MEM_STATIC static inline
+#endif
 
 /*-**************************************************************
 *  Basic Types

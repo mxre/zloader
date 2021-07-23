@@ -12,7 +12,8 @@
 typedef struct efi_load_file_protocol* efi_load_file_protocol_t;
 
 struct efi_load_file_protocol {
-	efi_status_t (*load_file)(
+	efi_api
+    efi_status_t (*load_file)(
         efi_load_file_protocol_t this,
         efi_device_path_t file_path,
         bool boot_policy,

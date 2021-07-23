@@ -8,6 +8,7 @@
 #include "efi/simple_file_system_protocol.h"
 #include "efi/file.h"
 #include "efi/loaded_image.h"
+#include "efi/event.h"
 #include "efi/boot_services.h"
 #include "efi/runtime_services.h"
 #include "efi/system_table.h"

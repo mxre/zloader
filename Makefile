@@ -16,7 +16,7 @@ LDFLAGS      += -version:0.1
 USE_LZ4 	  = 1  # exe +10 KiB, speed 488ms  729MiB/s   inputsize 15 MiB
 USE_ZSTD 	  = 1  # exe +35 KiB, speed 989ms  360MiB/s   inputsize 10 MiB
 
-SRCS          = src/main.c src/decompress.c src/util.c
+SRCS          = src/main.c src/decompress.c src/util.c src/systemd.c
 SRCS         += src/pe.c src/pe_loader.c src/initrd.c
 SRCS         += lib/efilib/efilib.c lib/efilib/efirtlib.c lib/efilib/string.c lib/efilib/efiprint.c lib/efilib/efifprt.c lib/efilib/guid.c
 SRCS         += lib/xxhash.c
@@ -60,7 +60,7 @@ clean:
 %.efi: $(VMA_FIXER)
 %.efi: $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS) -out:$@.stub
-	$(OBJCOPY) --add-section .osrel=loader/os-release --add-section .cmdline=loader/cmdline --add-section .linux=loader/Image.zst --add-section .initrd=loader/initramfs-linux.img $@.stub $@
+	$(OBJCOPY) --add-section .osrel=loader/os-release --add-section .cmdline=loader/cmdline --add-section .linux=loader/Image.lz4 --add-section .initrd=loader/initramfs-linux.img $@.stub $@
 	$(VMA_FIXER) $@
 #	install -D -t build $@
 	sbsign --key ../espressobin/keys/sb/db.key --cert ../espressobin/keys/sb/db.crt --output build/$@ $@

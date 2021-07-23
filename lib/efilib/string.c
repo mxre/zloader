@@ -13,7 +13,7 @@
 #ifdef strlen
 #undef strlen
 #endif
-[[ gnu::weak ]]
+__weak__
 efi_size_t strlen (
     const char8_t* s
 ) {
@@ -26,7 +26,7 @@ efi_size_t strlen (
 #ifdef strcmp
 #undef strcmp
 #endif
-[[ gnu::weak ]]
+__weak__
 int strcmp (
     const char8_t* a,
     const char8_t* b
@@ -42,6 +42,7 @@ int strcmp (
 #ifdef strncmp
 #undef strncmp
 #endif
+__weak__
 int strncmp (
     const char8_t* a,
     const char8_t* b,
@@ -64,7 +65,7 @@ int strncmp (
 #ifdef strchr
 #undef strchr
 #endif
-[[ gnu::weak ]]
+__weak__
 char8_t* strchr (
     const char8_t* str,
     int needle
@@ -80,7 +81,7 @@ char8_t* strchr (
 #ifdef wcslen
 #undef wcslen
 #endif
-[[ gnu::weak ]]
+__weak__
 efi_size_t wcslen (
     const char16_t* s
 ) {
@@ -93,7 +94,7 @@ efi_size_t wcslen (
 #ifdef wcscmp
 #undef wcscmp
 #endif
-[[ gnu::weak ]]
+__weak__
 int wcscmp (
     const char16_t* a,
     const char16_t* b
@@ -110,7 +111,7 @@ int wcscmp (
 #ifdef wcschr
 #undef wcschr
 #endif
-[[ gnu::weak ]]
+__weak__
 char16_t* wcschr (
     const char16_t* str,
     char16_t needle

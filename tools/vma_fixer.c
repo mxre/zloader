@@ -16,7 +16,7 @@
 
 static struct PE_version16 efi_version = {
     .major = 2,
-    .minor = 31
+    .minor = 0
 };
 
 static struct section_vma {

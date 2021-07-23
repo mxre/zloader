@@ -26,6 +26,7 @@ typedef struct efi_file_protocol* efi_file_handle_t;
 struct efi_file_protocol {
     uint64_t revision;
 
+    efi_api
     efi_status_t (*open) (
         efi_file_handle_t self,
         efi_file_handle_t *new_file,
@@ -34,15 +35,18 @@ struct efi_file_protocol {
         uint64_t attributes 
     );
 
+    efi_api
     efi_status_t (*close) (
         efi_file_handle_t self
     );
 
+    efi_api
     /* delete is a reserved name */
     efi_size_t (*unlink) (
         efi_file_handle_t self
     );
 
+    efi_api
     efi_size_t (*read) (
         efi_file_handle_t self,
         efi_size_t* size,
@@ -78,22 +82,26 @@ struct efi_file_protocol {
      * 
      *  Direct writes to opened directories are not supported.
      */
+    efi_api
     efi_status_t (*write) (
         efi_file_handle_t self,
         efi_size_t* size,
         const void* buffer
     );
 
+    efi_api
     efi_status_t (*get_position) (
         efi_file_handle_t self,
         efi_size_t* pos
     );
 
+    efi_api
     efi_status_t (*set_position) (
         efi_file_handle_t self,
         efi_size_t* pos
     );
 
+    efi_api
     efi_status_t (*get_info) (
         efi_file_handle_t self,
         efi_guid_t type,
@@ -101,6 +109,7 @@ struct efi_file_protocol {
         void* buffer
     );
 
+    efi_api
     efi_status_t (*set_info) (
         efi_file_handle_t self,
         efi_guid_t type,
@@ -108,9 +117,12 @@ struct efi_file_protocol {
         void* buffer
     );
 
+    efi_api
     efi_status_t (*flush) (
         efi_file_handle_t self
     );
+
+    /* FileProtocol revision 2 interfaces omitted */
 };
 
 #define EFI_FILE_INFO_GUID   \

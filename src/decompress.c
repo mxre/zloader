@@ -15,7 +15,7 @@
 # include <lz4frame.h>
 #endif
 
-#if USE_ZSTD
+#ifdef USE_ZSTD
 # include <zstd.h>
 # include <zstd_errors.h>
 
@@ -187,8 +187,6 @@ end:
     return err;
 }
 #endif /* USE_ZSTD */
-
-#define CHUNK_SIZE (256 * 1024)
 
 efi_status_t decompress(
     simple_buffer_t in,

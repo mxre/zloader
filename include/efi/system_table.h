@@ -25,4 +25,4 @@ struct efi_system_table {
 
 typedef struct efi_system_table* efi_system_table_t;
 
-typedef efi_status_t (*efi_entry_point_t) (efi_handle_t, efi_system_table_t);
+typedef efi_api efi_status_t (*efi_entry_point_t) (efi_handle_t, efi_system_table_t);

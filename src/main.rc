@@ -10,14 +10,14 @@ FILEFLAGSMASK 0
 {
   BLOCK "StringFileInfo" {
     BLOCK "000904b0" {
-      VALUE "FileVersion", "0.0.1.0"
-      VALUE "ProductVersion", "0.0.1.0"
+      VALUE "FileVersion", "0.1"
+      VALUE "ProductVersion", "0.1"
       VALUE "ProductName", "zloader"
       VALUE "FileDescription", "zloader"
       VALUE "OriginalFilename", "zloader.efi"
     }
   }
-    
+
   BLOCK "VarFileInfo" {
     VALUE "Translation", 0x0009, 0x04b0
   }

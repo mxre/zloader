@@ -13,6 +13,7 @@ typedef struct efi_simple_file_system_protocol* efi_simple_file_system_protocol_
 struct efi_simple_file_system_protocol {
     uint64_t revision;
 
+    efi_api
     efi_status_t (*open_volume) (
         efi_simple_file_system_protocol_t self,
         efi_file_handle_t *root

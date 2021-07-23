@@ -182,7 +182,12 @@ char16_t* guid_to_string(
         if (guid->ms3 < 0x10 << (4*i)) (*p++) = '0';
     p = value_to_hex_string(p, guid->ms3);
     (*p++) = '-';
-    for (uint8_t i = 0; i < 8; i++) {
+    for (uint8_t i = 0; i < 2; i++) {
+        if (guid->ms4[i] < 0x10) (*p++) = '0';
+        p = value_to_hex_string(p, guid->ms4[i]);
+    }
+    (*p++) = '-';
+    for (uint8_t i = 2; i < 8; i++) {
         if (guid->ms4[i] < 0x10) (*p++) = '0';
         p = value_to_hex_string(p, guid->ms4[i]);
     }
@@ -507,7 +512,8 @@ efi_size_t _print(
                         item.is_short ? 4  : 
                         item.is_long  ? 16 : 8;
                     item.pad_char = u'0';
-                [[ fallthrough ]];
+                    
+                __fallthrough__;
                 case 'x':
                     if (item.is_short) {
                         value_to_hex_string (

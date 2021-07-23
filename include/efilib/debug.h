@@ -28,6 +28,7 @@
 #endif /* EFI_DEBUG */
 
 #define EFILIB_ERROR(msg) print(_u("EFILIB: ERROR: ") _u(msg) _u("\r\n"))
+#define EFILIB_ERROR_PRINTF(msg, ...) wprintf(_u("EFILIB: ERROR: ") _u(msg) _u("\n") __VA_OPT__(, __VA_ARGS__))
 
 #define __efi_assert(condition) if (!(condition)) { \
         [[ clang::unlikely ]] \

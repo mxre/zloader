@@ -48,43 +48,53 @@ typedef struct efi_simple_text_output_mode* efi_simple_text_output_mode_t;
 typedef struct efi_simple_text_output_protocol* efi_simple_text_output_protocol_t;
 
 struct efi_simple_text_output_protocol {
+    efi_api
 	efi_status_t (*reset)(
 		efi_simple_text_output_protocol_t self,
 		bool extended_verification);
 
+    efi_api
 	efi_status_t (*output_string)(
 		efi_simple_text_output_protocol_t self,
 		const char16_t* string);
 
+    efi_api
 	efi_status_t (*test_string)(
 		efi_simple_text_output_protocol_t self,
 		const char16_t* string);
 
+    efi_api
 	efi_status_t (*query_mode)(
 		efi_simple_text_output_protocol_t self,
 		efi_size_t mode_number,
 		efi_size_t* columns,
 		efi_size_t* rows);
 
+    efi_api
 	efi_status_t (*set_mode)(
 		efi_simple_text_output_protocol_t self,
 		efi_size_t mode_number);
 
+    efi_api
 	efi_status_t (*set_attribute)(
 		efi_simple_text_output_protocol_t self,
 		efi_size_t attribute);
 
+    efi_api
 	efi_status_t (*clear_screen)(
 		efi_simple_text_output_protocol_t self);
 
+    efi_api
 	efi_status_t (*set_cursor_position)(
 		efi_simple_text_output_protocol_t self,
 		efi_size_t column,
 		efi_size_t row);
 
+    efi_api
 	efi_status_t (*enable_cursor)(
 		efi_simple_text_output_protocol_t self,
 		bool visible);
 
+    efi_api
 	efi_simple_text_output_mode_t mode;
 };

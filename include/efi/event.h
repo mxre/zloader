@@ -9,12 +9,12 @@
 #define EFI_EVENT_NOTIFY_SIGNAL                 UINT32_C(0x00000200)
 #define EFI_EVENT_SIGNAL_EXIT_BOOT_SERVICES     UINT32_C(0x00000201)
 #define EFI_EVENT_SIGNAL_VIRTUAL_ADDRESS_CHANGE UINT32_C(0x60000202)
-#define EFI_EVENT_EFI_SIGNAL_MASK               UINT32_C(0x000000FFEVT_EFI_SIGNAL_MASK)
+#define EFI_EVENT_EFI_SIGNAL_MASK               UINT32_C(0x000000FF)
 #define EFI_EVENT_EFI_SIGNAL_MAX                4
 
 typedef void* efi_event_t;
 
-typedef void (*efi_event_notify) (efi_event_t event, void *context);
+typedef efi_api void (*efi_event_notify) (efi_event_t event, void *context);
 
 enum efi_event_timer_delay {
         EFI_TIMER_CANCEL,

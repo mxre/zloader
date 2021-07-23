@@ -28,7 +28,7 @@ efi_status_t stall(efi_size_t microseconds) {
     return BS->stall(microseconds);
 }
 
-static inline
+static inline noreturn
 void exit(efi_status_t status) {
     EFILIB_ASSERT(BS);
     EFILIB_ASSERT(EFI_IMAGE);
