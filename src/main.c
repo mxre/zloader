@@ -5,9 +5,9 @@
 #include "pe.h"
 #include "initrd.h"
 
-#ifdef DEBUG
 #include <xxhash.h>
 
+[[ maybe_unused ]]
 static inline
 void print_hash(simple_buffer_t buffer) {
     if (!buffer->buffer)
@@ -19,7 +19,6 @@ void print_hash(simple_buffer_t buffer) {
     }
     _MESSAGE("checksum %blX", xxh64_digest(&xs));
 }
-#endif
 
 #if USE_EFI_LOAD_IMAGE
 static inline
@@ -111,26 +110,9 @@ efi_status_t efi_main(
     efi_handle_t image,
     efi_system_table_t sys_table
 ) {
-#ifdef DEBUG
-    sys_table->out->set_attribute(sys_table->out, EFI_TEXT_ATTR(EFI_WHITE, EFI_BLUE));
-#endif
     initialize_library(image, sys_table);
     _MESSAGE("program begin");
     efi_status_t err = EFI_SUCCESS;
-
-#ifdef DEBUG
-    {
-        efi_guid_t* guid_buffer;
-        efi_size_t guid_buffer_size;
-        efi_status_t err = BS->protocols_per_handle(EFI_IMAGE, &guid_buffer, &guid_buffer_size);
-        if (err == EFI_SUCCESS) {
-            for (int i = 0; i < guid_buffer_size; i++) {
-                _MESSAGE("EFI_IMAGE {%g}", guid_buffer[i]);
-            }
-            free(guid_buffer);
-        }
-    } 
-#endif
 
     /* get the relevant sections from the image */
     struct PE_locate_sections sections[] = {
