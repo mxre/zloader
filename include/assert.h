@@ -6,8 +6,8 @@
 #define static_assert _Static_assert
 #endif
 
-#ifndef NDEBUG
+#ifdef NDEBUG
 # define assert(condition)
 #else
-# define assert(condition) EFI_ASSERT(condition)
+# define assert(condition) EFILIB_ASSERT(condition)
 #endif

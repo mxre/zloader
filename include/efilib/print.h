@@ -43,7 +43,6 @@
  */
 
 #include <efi.h>
-
 #include "externs.h"
 
 /**
@@ -61,7 +60,7 @@ efi_status_t print(
 /**
  * @brief color for normal text
  */
-#define EFILIB_PRINT_NORMAL_COLOR      EFI_LIGHTGRAY
+#define EFILIB_PRINT_NORMAL_COLOR      EFI_WHITE
 
 /**
  * @brief color for highlighted text
@@ -114,6 +113,8 @@ efi_size_t wprintf_at(
     return ret;
 }
 
+
+[[ gnu::format(printf, 1, 2) ]]
 static inline
 efi_size_t printf(
     const char8_t* fmt,

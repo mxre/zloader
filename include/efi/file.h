@@ -59,15 +59,15 @@ struct efi_file_protocol {
      * @param[in] buffer
      *  The buffer of data to write.
      * 
-     * @retval EFI_SUCCESS          The data was written.
-     * @retval EFI_UNSUPPORT        Writes to open directory files are not supported.
-     * @retval EFI_NO_MEDIA         Writes to open directory files are not supported.
-     * @retval EFI_DEVICE_ERROR     The device reported an error.
-     * @retval EFI_DEVICE_ERROR     An attempt was made to write to a deleted file.
-     * @retval EFI_VOLUME_CORRUPTED The file system structures are corrupted.
-     * @retval EFI_WRITE_PROTECTED  The file or medium is write-protected.
-     * @retval EFI_ACCESS_DENIED    The file was opened read only.
-     * @retval EFI_VOLUME_FULL      The volume is full.
+     * @returns EFI_SUCCESS          The data was written.
+     * @returns EFI_UNSUPPORT        Writes to open directory files are not supported.
+     * @returns EFI_NO_MEDIA         Writes to open directory files are not supported.
+     * @returns EFI_DEVICE_ERROR     The device reported an error.
+     * @returns EFI_DEVICE_ERROR     An attempt was made to write to a deleted file.
+     * @returns EFI_VOLUME_CORRUPTED The file system structures are corrupted.
+     * @returns EFI_WRITE_PROTECTED  The file or medium is write-protected.
+     * @returns EFI_ACCESS_DENIED    The file was opened read only.
+     * @returns EFI_VOLUME_FULL      The volume is full.
      * 
      * @details
      *  The `write()` function writes the specified number of bytes to the file at the current

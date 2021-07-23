@@ -25,7 +25,7 @@ void free_p(void** p) {
 
 #define _cleanup_pool _cleanup(free_p)
 
-#ifdef DEBUG
+#ifdef PRINT_MESSAGES
 #define _MESSAGE(msg, ...) wprintf(u"MSG: " _u(msg) u"\n" __VA_OPT__(, __VA_ARGS__))
 #else
 #define _MESSAGE(msg, ...)
@@ -33,21 +33,29 @@ void free_p(void** p) {
 
 #define _ERROR(msg, ...) wprintf(u"ERR: %E" _u(msg) u"%N\n" __VA_OPT__(, __VA_ARGS__))
 
+/* don't move fields buffer, lengthand pos they are identical to ZSTD buffer */
 struct simple_buffer {
-    void* buffer;
-    size_t length;
-    size_t pos;
-    size_t allocated;
+    void* buffer;       ///< pointer to base of the buffer
+    size_t length;      ///< length of data set in the buffer
+    size_t pos;         ///< position of the cursor  
+    size_t allocated;   ///< number of bytes allocated, this is the maximum size of the buffer
 };
 
 typedef struct simple_buffer* simple_buffer_t;
 
 static __always_inline inline
-void* buffer_pos(simple_buffer_t buffer) {
+uint8_t* buffer_pos(simple_buffer_t buffer) {
     assert(buffer->buffer);
-    assert(buffer->pos < buffer->allocated);
 
     return (uint8_t*) buffer->buffer + buffer->pos;
+}
+
+static __always_inline inline
+size_t buffer_len(simple_buffer_t buffer) {
+    assert(buffer->buffer);
+    assert(buffer->pos < buffer->length);
+
+    return buffer->length - buffer->pos;
 }
 
 static __always_inline inline
@@ -64,7 +72,9 @@ struct simple_buffer allocate_simple_buffer(size_t length) {
 
 static inline
 void free_simple_buffer(simple_buffer_t buffer) {
-    free(buffer->buffer);
+    /* only free buffers that were actually allocated */
+    if (buffer->allocated)
+        free(buffer->buffer);
 }
 
 #define _cleanup_buffer _cleanup(free_simple_buffer)
@@ -72,14 +82,4 @@ void free_simple_buffer(simple_buffer_t buffer) {
 efi_status_t write_simple_buffer_to_file(
     char16_t* filename,
     const simple_buffer_t buffer
-);
-
-efi_status_t image_load_from_memory(
-    const simple_buffer_t buffer,
-    efi_handle_t* image
-);
-
-efi_status_t image_start(
-    efi_handle_t* image,
-    char16_t* options
 );

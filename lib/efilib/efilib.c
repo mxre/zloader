@@ -8,9 +8,14 @@ efi_boot_services_table_t BS = NULL;
 efi_runtime_services_table_t RT = NULL; 
 efi_memory_t _EFI_POOL_ALLOCATION = EFI_BOOT_SERVICES_DATA;
 efi_loaded_image_t EFI_LOADED_IMAGE = NULL;
-
+uint64_t BOOT_TIME_USECS = 0;
+/**
+ * @brief Use assembly instruction to read CPU ticks counter
+ */
 static inline
 uint64_t ticks_read() {
+    /* x64 and some i686 may know rdtscd which could be more accurate
+       but this requires feature testing with cpu id */
 #ifdef __x86_64__
     uint64_t a, d;
     __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
@@ -30,15 +35,19 @@ uint64_t ticks_read() {
 
 static uint64_t freq = 0;
 
+/**
+ * @brief measure 1ms in cpu ticks
+ */
 static inline
 uint64_t ticks_freq() {
     uint64_t ticks_start, ticks_end;
-
     ticks_start = ticks_read();
     stall(1000);
     ticks_end = ticks_read();
 
-    EFILIB_DBG_PRINTF("counter freq: %lu", ticks_end - ticks_start);
+    EFILIB_DBG_PRINTF("boottime: %.4fs counter freq: %lu",
+        ticks_start / ((ticks_end - ticks_start) * 1000.0),
+        ticks_end - ticks_start);
 
     return (ticks_end - ticks_start) * UINT64_C(1000);
 }
@@ -47,6 +56,7 @@ void initialize_library(
     efi_handle_t image,
     efi_system_table_t system_table
 ) {
+    BOOT_TIME_USECS = ticks_read();
     EFI_IMAGE = image;
     
     ST = system_table;
@@ -61,36 +71,47 @@ void initialize_library(
     EFILIB_DBG_PRINTF("BootServices   : %.8s", (char8_t*) &BS->hdr.signature);
     EFILIB_DBG_PRINTF("RuntimeServices: %.8s", (char8_t*) &RT->hdr.signature);
 
+    /* UEFI 2.31 is the lowest version I tested for */
+    if (ST->hdr.revision < 0x0002001f) {
+        EFILIB_ERROR("UEFI implementation too old");
+        exit(EFI_INCOMPATIBLE_VERSION);
+    }
+
     EFILIB_DBG_PRINTF("Console: { mode: %u attr: %X (%d, %d) }",
         ST->out->mode->mode, ST->out->mode->attribute,
         ST->out->mode->cursor_column, ST->out->mode->cursor_row );
 
     freq = ticks_freq();
+    BOOT_TIME_USECS = UINT64_C(1000000) * BOOT_TIME_USECS / freq;
 
     if (EFI_IMAGE) {
-        efi_status_t err = BS->handle_protocol(
-            EFI_IMAGE, &efi_loaded_image_protocol_guid, (efi_handle_t*) &EFI_LOADED_IMAGE);
+        efi_status_t err = BS->open_protocol(
+            EFI_IMAGE, &efi_loaded_image_protocol_guid, (efi_handle_t*) &EFI_LOADED_IMAGE,
+            EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
         if (EFI_ERROR(err)) {
-            EFILIB_DBG_MESSAGE("Could not get LoadedImageProtocol");
-            return;
+            EFILIB_ERROR("Could not get LoadedImageProtocol");
+            exit(err);
         } else {
             _EFI_POOL_ALLOCATION = EFI_LOADED_IMAGE->image_data_type;
         }
 
         efi_simple_file_system_protocol_t fs;
-        err = BS->handle_protocol(
-            EFI_LOADED_IMAGE->device_handle, &efi_simple_fs_protocol_guid, (efi_handle_t*) &fs);
+        err = BS->open_protocol(
+            EFI_LOADED_IMAGE->device_handle, &efi_simple_fs_protocol_guid, (efi_handle_t*) &fs,
+            EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
         if (EFI_ERROR(err)) {
-            EFILIB_DBG_MESSAGE("Could not get SimpleFileSystemProtocol");
-            return;
+            EFILIB_ERROR("Could not get SimpleFileSystemProtocol");
+            exit(EFI_INCOMPATIBLE_VERSION);
         } else {
             err = fs->open_volume(fs, &EFI_ROOT);
             if (EFI_ERROR(err)) {
-                EFILIB_DBG_MESSAGE("Could not open root directoy");
+                EFILIB_ERROR("Could not open root directoy");
+                exit(err);
             }
         }
     } else {
-        EFILIB_DBG_MESSAGE("EFI_IMAGE_HANDLE was empty");
+        EFILIB_ERROR("EFI_IMAGE_HANDLE was empty");
+        exit(EFI_UNSUPPORTED);
     }
 }
 
@@ -119,10 +140,10 @@ uint64_t monotonic_time_usec() {
 
     ticks = ticks_read();
     if (ticks == 0)
-        return 0;
+        [[ clang::unlikely ]] return 0;
 
     if (freq == 0)
         [[ clang::unlikely ]] return 0;
 
-    return UINT64_C(1000) * UINT64_C(1000) * ticks / freq;
+    return UINT64_C(1000000) * ticks / freq;
 }

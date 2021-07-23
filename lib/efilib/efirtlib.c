@@ -16,6 +16,7 @@
 #include <efilib.h>
 
 void* malloc(efi_size_t size) {
+    EFILIB_ASSERT(BS);
     efi_status_t err;
     void* ptr;
     err = BS->allocate_pool(_EFI_POOL_ALLOCATION, size, &ptr);
@@ -27,6 +28,7 @@ void* malloc(efi_size_t size) {
 }
 
 void* calloc(efi_size_t num, efi_size_t size) {
+    EFILIB_ASSERT(BS);
     efi_status_t err;
     void* ptr;
     err = BS->allocate_pool(_EFI_POOL_ALLOCATION, num * size, &ptr);
@@ -34,11 +36,12 @@ void* calloc(efi_size_t num, efi_size_t size) {
         EFILIB_DBG_MESSAGE("Could not allocate pool memory");
         return NULL;
     }
-    bzero(ptr, num * size);
+    memset(ptr, 0, num * size);
     return ptr;
 }
 
 void free(void* p) {
+    EFILIB_ASSERT(BS);
     BS->free_pool(p);
 }
 
@@ -51,6 +54,11 @@ void* memmove (
     const void* src,
     efi_size_t size  
 ) {
+#if EFLLIB_USE_EFI_COPY_MEM
+    EFILIB_ASSERT(BS);
+    BS->copy_mem(dst, src, size);
+    return dst;
+#else
     if ((void*)((uint8_t*) dst + size) < src || (void*)((uint8_t*) src + size) < dst)
         return memcpy(dst, src, size);
     else {
@@ -65,6 +73,7 @@ void* memmove (
             return memcpy(dst, src, size);
         }
     }
+#endif
 }
 
 #ifdef memcpy
@@ -76,12 +85,17 @@ void* memcpy (
     const void* src,
     efi_size_t size   
 ) {
+#if EFLLIB_USE_EFI_COPY_MEM
+    EFILIB_ASSERT(BS);
+    BS->copy_mem(dst, src, size);
+#else
     uint8_t* d = dst;
     const uint8_t* s = src;
-    while(size--) {
+    while (size--) {
         *(d++) = *(s++);
     }
-    return d;
+#endif
+    return dst;
 }
 
 #ifdef memcmp
@@ -95,103 +109,11 @@ int memcmp (
 ) {
     const uint8_t* x = a;
     const uint8_t* y = b;
-	
-    while(size--) {
-		int ret;
+    
+    while (size--) {
+        int ret;
         if ((ret = *(x++) - *(y++)))
-			return (ret > 0) - (ret < 0);
+            return (ret > 0) - (ret < 0);
     }
     return 0;
-}
-
-#ifdef strlen
-#undef strlen
-#endif
-[[ gnu::weak ]]
-efi_size_t strlen (
-    const char8_t* s
-) {
-    efi_size_t len;
-    
-    for (len = 0; *s; s++, len++) ;
-    return len;
-}
-
-#ifdef strcmp
-#undef strcmp
-#endif
-[[ gnu::weak ]]
-int strcmp (
-    const char8_t* a,
-    const char8_t* b
-) {	
-    do {
-		int ret;
-        if ((ret = *a - *b))
-			return (ret > 0) - (ret < 0);
-    } while(*(++a) && *(++b));
-
-	return 0;
-}
-
-#ifdef strchr
-#undef strchr
-#endif
-[[ gnu::weak ]]
-char8_t* strchr (
-    const char8_t* str,
-    int needle
-) {	
-    do {
-		if (*str == needle)
-			return (char8_t*) str;
-	} while (*(++str));
-
-	return NULL;
-}
-
-#ifdef wcslen
-#undef wcslen
-#endif
-[[ gnu::weak ]]
-efi_size_t wcslen (
-    const char16_t* s
-) {
-    efi_size_t len;
-    
-    for (len = 0; *s; s++, len++) ;
-    return len;
-}
-
-#ifdef wcscmp
-#undef wcscmp
-#endif
-[[ gnu::weak ]]
-int wcscmp (
-    const char16_t* a,
-    const char16_t* b
-) {	
-    do {
-		int ret;
-        if ((ret = *(a++) - *(b++)))
-			return (ret > 0) - (ret < 0);
-    } while(*a && *b);
-
-	return 0;
-}
-
-#ifdef wcschr
-#undef wcschr
-#endif
-[[ gnu::weak ]]
-char16_t* wcschr (
-    const char16_t* str,
-    char16_t needle
-) {	
-    do {
-		if (*str == needle)
-			return (char16_t*)str;
-	} while (*(++str));
-
-	return NULL;
 }

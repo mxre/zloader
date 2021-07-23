@@ -16,7 +16,7 @@
 
 #define EFI_ERROR_OEM_MASK \
     (EFI_STATUS_C(0xc0) << ((sizeof(efi_status_t) - 1) * 8))
-#define EFIERR_OEM(a)   (EFI_ERROR_OEM_MASK | a)  
+#define EFIERR_OEM(a)    (EFI_ERROR_OEM_MASK | a)  
 
 #define EFIWARN(a)                            (a)
 #define EFI_ERROR(a)         (((intptr_t) a) < 0)

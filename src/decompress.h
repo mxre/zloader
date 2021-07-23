@@ -3,7 +3,7 @@
 #include <efi.h>
 #include "util.h"
 
-efi_status_t decompress_file(
-    efi_file_handle_t handle,
-    simple_buffer_t buffer
+efi_status_t decompress(
+    simple_buffer_t in,
+    simple_buffer_t out
 );

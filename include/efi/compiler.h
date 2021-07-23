@@ -16,6 +16,14 @@
 #  define __always_inline __attribute__((always_inline))
 #endif
 
-#ifndef packed
+#ifndef __packed
 #  define __packed __attribute__((packed))
+#endif
+
+#ifndef __pure
+#  define __pure __attribute__((pure))
+#endif
+
+#ifndef __unlikely__
+#  define __unlikely__ __attribute__((unlikely))
 #endif

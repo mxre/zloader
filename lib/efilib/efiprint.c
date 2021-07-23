@@ -75,7 +75,7 @@ char16_t* value_to_string (
     int64_t v
 ) {
     if (!v) {
-        buffer[0] = u'0';
+        buffer[0] = '0';
         buffer[1] = 0;
         return buffer + 1;
     }
@@ -91,7 +91,7 @@ char16_t* value_to_string (
 
     while (v) {
         lldiv_t r = lldiv((uint64_t) v, 10);
-        *(p1++) = (char16_t)r.rem + u'0';
+        *(p1++) = (char16_t)r.rem + '0';
         v = r.quot;
     }
 
@@ -110,7 +110,7 @@ char16_t* value_to_hex_string(
     uint64_t value
 ) {
     if (!value) {
-        buffer[0] = u'0';
+        buffer[0] = '0';
         buffer[1] = 0;
         return buffer + 1;
     }
@@ -142,7 +142,7 @@ char16_t* float_to_string (
     char16_t* p = value_to_string(buffer, i);
 
     /* Decimal point */
-    *p = u'.';
+    *p = '.';
     p++;
 
     /* Keep fractional part */
@@ -152,7 +152,7 @@ char16_t* float_to_string (
     /* Leading fractional zeroes */
     f *= 10.0;
     while ((f != 0) && ((intptr_t) f == 0)) {
-      *p = u'0';
+      *p = '0';
       p++;
       f *= 10.0;
     }
@@ -170,20 +170,20 @@ char16_t* guid_to_string(
     efi_guid_t guid
 ) {
     char16_t* p = buffer;
-    for (uint8_t i = (sizeof(uint32_t) - 1) * 2; i--;)
-        if (guid->ms1 < 0x10 << i) (*p++) = u'0';
+    for (uint8_t i = (sizeof(uint32_t)) * 2; i--;)
+        if (guid->ms1 < 0x10 << (4*i)) (*p++) = '0';
     p = value_to_hex_string(p, guid->ms1);
-    (*p++) = u'-';
-    for (uint8_t i = (sizeof(uint16_t) - 1) * 2; i--;)
-        if (guid->ms2 < 0x10 << i) (*p++) = u'0';
+    (*p++) = '-';
+    for (uint8_t i = (sizeof(uint16_t)-1) * 2; i--;)
+        if (guid->ms2 < 0x10 << (4*i)) (*p++) = '0';
     p = value_to_hex_string(p, guid->ms2);
-    (*p++) = u'-';
-    for (uint8_t i = (sizeof(uint16_t) - 1) * 2; i--;)
-        if (guid->ms3 < 0x10 << i) (*p++) = u'0';
+    (*p++) = '-';
+    for (uint8_t i = (sizeof(uint16_t)-1) * 2; i--;)
+        if (guid->ms3 < 0x10 << (4*i)) (*p++) = '0';
     p = value_to_hex_string(p, guid->ms3);
-    (*p++) = u'-';
-    for(uint8_t i = 0; i < 8; i++) {
-        if (guid->ms4[i] < 0x10) (*p++) = u'0';
+    (*p++) = '-';
+    for (uint8_t i = 0; i < 8; i++) {
+        if (guid->ms4[i] < 0x10) (*p++) = '0';
         p = value_to_hex_string(p, guid->ms4[i]);
     }
     return p;
@@ -219,46 +219,46 @@ char16_t* time_to_string(
 #if EFILIB_ERROR_MESSAGES
 static struct {
     efi_status_t code;
-    char16_t*    desc;
+    char8_t*    desc;
 } error_codes[] = {
-    {  EFI_SUCCESS,                u"Success"},
-    {  EFI_LOAD_ERROR,             u"Load Error"},
-    {  EFI_INVALID_PARAMETER,      u"Invalid Parameter"},
-    {  EFI_UNSUPPORTED,            u"Unsupported"},
-    {  EFI_BAD_BUFFER_SIZE,        u"Bad Buffer Size"},
-    {  EFI_BUFFER_TOO_SMALL,       u"Buffer Too Small"},
-    {  EFI_NOT_READY,              u"Not Ready"},
-    {  EFI_DEVICE_ERROR,           u"Device Error"},
-    {  EFI_WRITE_PROTECTED,        u"Write Protected"},
-    {  EFI_OUT_OF_RESOURCES,       u"Out of Resources"},
-    {  EFI_VOLUME_CORRUPTED,       u"Volume Corrupt"},
-    {  EFI_VOLUME_FULL,            u"Volume Full"},
-    {  EFI_NO_MEDIA,               u"No Media"},
-    {  EFI_MEDIA_CHANGED,          u"Media changed"},
-    {  EFI_NOT_FOUND,              u"Not Found"},
-    {  EFI_ACCESS_DENIED,          u"Access Denied"},
-    {  EFI_NO_RESPONSE,            u"No Response"},
-    {  EFI_NO_MAPPING,             u"No mapping"},
-    {  EFI_TIMEOUT,                u"Time out"},
-    {  EFI_NOT_STARTED,            u"Not started"},
-    {  EFI_ALREADY_STARTED,        u"Already started"},
-    {  EFI_ABORTED,                u"Aborted"},
-    {  EFI_ICMP_ERROR,             u"ICMP Error"},
-    {  EFI_TFTP_ERROR,             u"TFTP Error"},
-    {  EFI_PROTOCOL_ERROR,         u"Protocol Error"},
-    {  EFI_INCOMPATIBLE_VERSION,   u"Incompatible Version"},
-    {  EFI_SECURITY_VIOLATION,     u"Security Policy Violation"},
-    {  EFI_CRC_ERROR,              u"CRC Error"},
-    {  EFI_END_OF_MEDIA,           u"End of Media"},
-    {  EFI_END_OF_FILE,            u"End of File"},
-    {  EFI_INVALID_LANGUAGE,       u"Invalid Languages"},
-    {  EFI_COMPROMISED_DATA,       u"Compromised Data"},
+    {  EFI_SUCCESS,                "Success"},
+    {  EFI_LOAD_ERROR,             "Load Error"},
+    {  EFI_INVALID_PARAMETER,      "Invalid Parameter"},
+    {  EFI_UNSUPPORTED,            "Unsupported"},
+    {  EFI_BAD_BUFFER_SIZE,        "Bad Buffer Size"},
+    {  EFI_BUFFER_TOO_SMALL,       "Buffer Too Small"},
+    {  EFI_NOT_READY,              "Not Ready"},
+    {  EFI_DEVICE_ERROR,           "Device Error"},
+    {  EFI_WRITE_PROTECTED,        "Write Protected"},
+    {  EFI_OUT_OF_RESOURCES,       "Out of Resources"},
+    {  EFI_VOLUME_CORRUPTED,       "Volume Corrupt"},
+    {  EFI_VOLUME_FULL,            "Volume Full"},
+    {  EFI_NO_MEDIA,               "No Media"},
+    {  EFI_MEDIA_CHANGED,          "Media changed"},
+    {  EFI_NOT_FOUND,              "Not Found"},
+    {  EFI_ACCESS_DENIED,          "Access Denied"},
+    {  EFI_NO_RESPONSE,            "No Response"},
+    {  EFI_NO_MAPPING,             "No mapping"},
+    {  EFI_TIMEOUT,                "Time out"},
+    {  EFI_NOT_STARTED,            "Not started"},
+    {  EFI_ALREADY_STARTED,        "Already started"},
+    {  EFI_ABORTED,                "Aborted"},
+    {  EFI_ICMP_ERROR,             "ICMP Error"},
+    {  EFI_TFTP_ERROR,             "TFTP Error"},
+    {  EFI_PROTOCOL_ERROR,         "Protocol Error"},
+    {  EFI_INCOMPATIBLE_VERSION,   "Incompatible Version"},
+    {  EFI_SECURITY_VIOLATION,     "Security Policy Violation"},
+    {  EFI_CRC_ERROR,              "CRC Error"},
+    {  EFI_END_OF_MEDIA,           "End of Media"},
+    {  EFI_END_OF_FILE,            "End of File"},
+    {  EFI_INVALID_LANGUAGE,       "Invalid Languages"},
+    {  EFI_COMPROMISED_DATA,       "Compromised Data"},
 
     // warnings
-    {  EFI_WARN_UNKNOWN_GLYPH,     u"Warning Unknown Glyph"},
-    {  EFI_WARN_DELETE_FAILURE,    u"Warning Delete Failure"},
-    {  EFI_WARN_WRITE_FAILURE,     u"Warning Write Failure"},
-    {  EFI_WARN_BUFFER_TOO_SMALL,  u"Warning Buffer Too Small"},
+    {  EFI_WARN_UNKNOWN_GLYPH,     "Warning Unknown Glyph"},
+    {  EFI_WARN_DELETE_FAILURE,    "Warning Delete Failure"},
+    {  EFI_WARN_WRITE_FAILURE,     "Warning Write Failure"},
+    {  EFI_WARN_BUFFER_TOO_SMALL,  "Warning Buffer Too Small"},
     {  0, NULL}
 };
 #endif /* EFILIB_ERROR_MESSAGES */
@@ -270,7 +270,8 @@ char16_t* status_to_string(
 #if EFILIB_ERROR_MESSAGES
     for (size_t i = 0; error_codes[i].desc; i +=1) {
         if (error_codes[i].code == status) {
-	        return wcscpy(buffer, error_codes[i].desc);
+            mbstowcs(buffer, error_codes[i].desc, strlen(error_codes[i].desc));
+	        return buffer;
         }
     }
 #endif /* EFILIB_ERROR_MESSAGES */
@@ -329,11 +330,13 @@ static inline
 char16_t ptr_getc(
     struct ptr* p
 ) {
-    char16_t c = 0;
-    c = p->is_ascii ? p->pb[p->index] : p->pu[p->index];
-    p->index++;
-
-    return  c;
+    char16_t c = '?';
+    if (p->is_ascii)  {
+        int ret = mbtowc(&c, p->pb + p->index, 8);
+        if (ret > 0)
+            p->index += ret;
+    } else c = p->pu[p->index++];
+    return c;
 }
 
 static inline
@@ -415,6 +418,7 @@ efi_size_t _print(
         item.pad_char = u' ';
         item.pad_before = true;
         item.is_long = false;
+        item.is_short = false;
         item.fmt.is_ascii = false;
         item.fmt.pb = NULL;
         item.fmt.pu = NULL;
@@ -496,12 +500,13 @@ efi_size_t _print(
                     item.is_long = sizeof(efi_size_t) == 8;
                     break;
 
+                case 'p':
                 case 'X':
                     item.width =
+                        c == 'p' ? sizeof(efi_size_t) * 2 :
                         item.is_short ? 4  : 
                         item.is_long  ? 16 : 8;
                     item.pad_char = u'0';
-
                 [[ fallthrough ]];
                 case 'x':
                     if (item.is_short) {
@@ -601,7 +606,7 @@ efi_size_t _print(
                     break;
 
                 default:
-                    item.scratch[0] = u'�';
+                    item.scratch[0] = u'?';
                     item.scratch[1] = 0;
                     item.fmt.pu = item.scratch;
                     break;
@@ -638,6 +643,7 @@ efi_size_t _iprint(
     const char8_t* fmta,
     va_list args
 ) {
+    EFILIB_ASSERT(out != NULL);
     struct print_state ps = { 0 };
     efi_size_t ret;
 
@@ -648,12 +654,12 @@ efi_size_t _iprint(
     /* some UEFI implementation do not store/provide console attributes */
     ps.attr = out->mode->attribute
         ? out->mode->attribute
-        : EFI_TEXT_ATTR(EFILIB_PRINT_NORMAL_COLOR, EFI_BACKGROUND_BLACK);
+        : EFILIB_PRINT_NORMAL_COLOR | EFI_BACKGROUND_BLACK;
 
-    ret = (ps.attr >> 4) & 0xf;
-    ps.attr_norm = EFI_TEXT_ATTR(EFILIB_PRINT_NORMAL_COLOR, ret);
-    ps.attr_highlight = EFI_TEXT_ATTR(EFILIB_PRINT_HIGHLIGHT_COLOR, ret);
-    ps.attr_error = EFI_TEXT_ATTR(EFILIB_PRINT_ERROR_COLOR, ret);
+    ret = ps.attr & 0xf0;
+    ps.attr_norm = EFILIB_PRINT_NORMAL_COLOR | ret;
+    ps.attr_highlight = EFILIB_PRINT_HIGHLIGHT_COLOR | ret;
+    ps.attr_error = EFILIB_PRINT_ERROR_COLOR | ret;
     
     if (fmt) {
         ps.fmt.pu = fmt;

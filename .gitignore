@@ -3,3 +3,9 @@ build/
 *.dep
 *.o
 *.efi
+*.efi.stub
+loader/
+tools/vma_fixer
+
+# headers are symlinks
+tools/*.h

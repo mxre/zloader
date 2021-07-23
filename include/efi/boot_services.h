@@ -187,6 +187,7 @@ struct efi_boot_services_table {
 			efi_handle_t image_handle
         );
 
+        [[ gnu::noreturn ]]
         efi_status_t (*exit_boot_services) (
 			efi_handle_t image_handle,
 			efi_size_t map_key
@@ -260,7 +261,7 @@ struct efi_boot_services_table {
         );
 
         efi_status_t (*locate_protocol) (
-            efi_guid_t *protocol,
+            efi_guid_t protocol,
             void *registration,
             void **interface
         );
@@ -283,7 +284,7 @@ struct efi_boot_services_table {
 
         void (*copy_mem) (
 			void* destination,
-			void* source,
+			const void* source,
 			efi_size_t length
         );
 

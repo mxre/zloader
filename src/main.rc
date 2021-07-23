@@ -1,0 +1,24 @@
+#pragma code_page(65001)
+
+1 VERSIONINFO
+FILEVERSION 0, 0, 1, 0
+PRODUCTVERSION 0, 0, 1, 0
+FILEOS 0
+FILETYPE 1
+FILEFLAGSMASK 0
+
+{
+  BLOCK "StringFileInfo" {
+    BLOCK "000904b0" {
+      VALUE "FileVersion", "0.0.1.0"
+      VALUE "ProductVersion", "0.0.1.0"
+      VALUE "ProductName", "zloader"
+      VALUE "FileDescription", "zloader"
+      VALUE "OriginalFilename", "zloader.efi"
+    }
+  }
+    
+  BLOCK "VarFileInfo" {
+    VALUE "Translation", 0x0009, 0x04b0
+  }
+}
