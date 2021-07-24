@@ -10,6 +10,9 @@
 #include "efilib/string.h"
 #include "efilib/file.h"
 #include "efilib/guid.h"
+#include "efilib/misc.h"
+#include "efilib/var.h"
+#include "efilib/print.h"
 
 void initialize_library(
     efi_handle_t image,
@@ -20,22 +23,6 @@ static inline
 efi_status_t clear_screen() {
     EFILIB_ASSERT(ST);
     return ST->out->clear_screen(ST->out);
-}
-
-static inline
-efi_status_t stall(efi_size_t microseconds) {
-    EFILIB_ASSERT(BS);
-    return BS->stall(microseconds);
-}
-
-static inline noreturn
-void exit(efi_status_t status) {
-    EFILIB_ASSERT(BS);
-    EFILIB_ASSERT(EFI_IMAGE);
-#ifdef EFILIB_STALL_ON_EXIT
-    stall(EFILIB_STALL_ON_EXIT);
-#endif
-    BS->exit(EFI_IMAGE, status, 0, NULL);
 }
 
 /**

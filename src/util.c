@@ -1,11 +1,26 @@
 #include "util.h"
 
 #include <efilib.h>
-
+#include <minmax.h>
 #include <xxhash.h>
 
 #include "config.h"
-#include "minmax.h"
+
+efi_status_t get_part_uuid_from_device_path(efi_device_path_t path, efi_guid_t guid) {
+    assert(path);
+    assert(guid);
+
+    for (efi_device_path_t dp = path; !IsDevicePathEndNode(dp); dp = NextDevicePathNode(dp)) {
+        if (dp->type != MEDIA_DEVICE_PATH && dp->subtype != MEDIA_PARTITION_DP)
+            continue;
+        efi_partition_device_path_t part = (efi_partition_device_path_t) dp;
+        if (part->signature_type != SIGNATURE_TYPE_GUID)
+            continue;
+        guidcpy(part->signature, guid);
+    }
+
+    return EFI_NOT_FOUND;
+}
 
 # define CHUNKED_WRITE
 # ifdef CHUNKED_WRITE

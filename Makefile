@@ -14,19 +14,24 @@ LDFLAGS      += -version:0.1
 
 #   NONE           #              speed 160ms  221MiB/s   inputsize 34 MiB
 USE_LZ4 	  = 1  # exe +10 KiB, speed 488ms  729MiB/s   inputsize 15 MiB
-USE_ZSTD 	  = 1  # exe +35 KiB, speed 989ms  360MiB/s   inputsize 10 MiB
+#USE_ZSTD 	  = 1  # exe +35 KiB, speed 989ms  360MiB/s   inputsize 10 MiB
 
 SRCS          = src/main.c src/decompress.c src/util.c src/systemd.c
 SRCS         += src/pe.c src/pe_loader.c src/initrd.c
-SRCS         += lib/efilib/efilib.c lib/efilib/efirtlib.c lib/efilib/string.c lib/efilib/efiprint.c lib/efilib/efifprt.c lib/efilib/guid.c
+SRCS         += lib/efilib/efilib.c lib/efilib/efirtlib.c lib/efilib/string.c lib/efilib/guid.c lib/efilib/efivar.c
+SRCS         += lib/efilib/efiprint.c lib/efilib/efifprt.c
 SRCS         += lib/xxhash.c
 
+ifdef USE_ZSTD
 SRCS         += lib/zstd/common/zstd_common.c lib/zstd/common/entropy_common.c lib/zstd/common/error_private.c lib/zstd/common/fse_decompress.c
 SRCS         += lib/zstd/decompress/huf_decompress.c lib/zstd/decompress/zstd_ddict.c lib/zstd/decompress/zstd_decompress_block.c lib/zstd/decompress/zstd_decompress.c
 CFLAGS       += -DUSE_ZSTD
+endif
 
+ifdef USE_LZ4
 SRCS         += lib/lz4/lz4.c lib/lz4/lz4frame.c lib/lz4/lz4hc.c
 CFLAGS       += -DUSE_LZ4
+endif
 
 OBJS          = $(SRCS:.c=.o) src/main.res
 DEPS          = $(SRCS:.c=.dep)
@@ -60,7 +65,7 @@ clean:
 %.efi: $(VMA_FIXER)
 %.efi: $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS) -out:$@.stub
-	$(OBJCOPY) --add-section .osrel=loader/os-release --add-section .cmdline=loader/cmdline --add-section .linux=loader/Image.lz4 --add-section .initrd=loader/initramfs-linux.img $@.stub $@
+	$(OBJCOPY) --add-section .osrel=loader/os-release --add-section .cmdline=loader/cmdline --add-section .linux=loader/Image.lz4 --add-section .initrd=loader/initrd.img $@.stub $@
 	$(VMA_FIXER) $@
 #	install -D -t build $@
 	sbsign --key ../espressobin/keys/sb/db.key --cert ../espressobin/keys/sb/db.crt --output build/$@ $@

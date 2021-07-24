@@ -11,11 +11,10 @@
  */
 #include <efi.h>
 #include <efilib.h>
-
-#if EFILIB_PRINTF
+#include <minmax.h>
 
 #define PRINT_STRING_LEN            200
-#define PRINT_ITEM_BUFFER_LEN       100
+#define PRINT_ITEM_BUFFER_LEN       200
 
 struct ptr {
     bool is_ascii;
@@ -41,8 +40,8 @@ struct _pitem {
     bool is_short; /* is 16 bit */
 };
 
-typedef efi_size_t (*output_string)(void* context, const char16_t* str, efi_size_t length);
-typedef efi_size_t (*output_setattr)(void* context, efi_size_t attr);
+typedef efi_api efi_size_t (*output_string)(void* context, const char16_t* str);
+typedef efi_api efi_size_t (*output_setattr)(void* context, efi_size_t attr);
 
 struct print_state {
     /* Input */
@@ -51,8 +50,8 @@ struct print_state {
 
     /* Output */
     char16_t* buffer;
-    char16_t* end;
     char16_t* pos;
+    char16_t* end;
     efi_size_t len;
 
     efi_size_t attr;
@@ -61,6 +60,7 @@ struct print_state {
     efi_size_t attr_norm;
     efi_size_t attr_highlight;
     efi_size_t attr_error;
+    bool add_cr;
 
     output_string output;
     output_setattr set_attr;
@@ -221,6 +221,147 @@ char16_t* time_to_string(
     return value_to_string(p, time->second);
 }
 
+static inline
+char16_t* _device_path_memmap(char16_t* buffer, efi_memory_device_path_t dp) {
+    efi_size_t len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"MemMap(%hu,0x%lx,0x%lx)", dp->memory_type, dp->start, dp->end);
+    return buffer + len;
+}
+
+static inline
+char16_t* _device_path_vendor(char16_t* buffer, efi_vendor_device_path_t dp) {
+    efi_size_t len;
+    switch (dp->hdr.type) {
+        case HARDWARE_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"VenHw(%g)", &dp->guid);
+            break;
+        case MESSAGING_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"VenMedia(%g)", &dp->guid);
+            break;
+        case MEDIA_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"VenMedia(%g)", &dp->guid);
+            break;
+        default:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"Ven?(%g)", &dp->guid);
+    }
+    return buffer + len;
+}
+
+static inline
+char16_t* _device_path_scsi(char16_t* buffer, efi_scsi_device_path_t dp) {
+    return buffer + wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"Scsi(%hu,%hu)", dp->target, dp->lun);
+}
+
+static inline
+char16_t* _device_path_usb(char16_t* buffer, efi_usb_device_path_t dp) {
+    return buffer + wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"Usb(%hu,%hu)", dp->port, dp->endpoint);
+}
+
+static inline
+char16_t* _device_path_sata(char16_t* buffer, efi_sata_device_path_t dp) {
+    return buffer + wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"Sata(%hu,%hu,%hu)", dp->hba_port, dp->port_multiplier_number, dp->lun);
+}
+
+static inline
+char16_t* _device_path_sd(char16_t* buffer, efi_sd_device_path_t dp) {
+    return buffer + wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"SD(%hu)", dp->slot_number);
+}
+
+static inline
+char16_t* _device_path_partition(char16_t* buffer, efi_partition_device_path_t dp) {
+    efi_size_t len;
+    switch (dp->signature_type) {
+        case SIGNATURE_TYPE_GUID:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"HD(%hu,GPT,%g)", dp->partition_number, (efi_guid_t) &dp->signature);
+            break;
+        case SIGNATURE_TYPE_MBR:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"HD(%hu,MBR,0x%X)", dp->partition_number, *((uint32_t*) &dp->signature));
+            break;
+        default:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN - 1, u"HD(%hu,%hu,0)", dp->partition_number, dp->signature_type);
+    }
+    return buffer + len;
+}
+
+static inline
+char16_t* _device_path_filepath(char16_t* buffer, efi_filepath_t dp) {
+    efi_size_t len = MIN(
+        (dp->hdr.length - sizeof(dp->hdr))/sizeof(char16_t),
+        PRINT_ITEM_BUFFER_LEN - 1);
+    return wcsncpy(buffer, dp->pathname, len);
+}
+
+static inline
+char16_t* _device_path_unknown(char16_t* buffer, efi_device_path_t dp) {
+    efi_size_t len;
+    switch (dp->type) {
+        case HARDWARE_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN -1, u"HardwarePath(%hu)", dp->subtype);
+            break;
+        case MESSAGING_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN -1, u"MsgPath(%hu)", dp->subtype);
+            break;
+        case MEDIA_DEVICE_PATH:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN -1, u"MediaPath(%hu)", dp->subtype);
+            break;
+        default:
+            len = wsprintf(buffer, PRINT_ITEM_BUFFER_LEN -1, u"Path(%hu,%hu)", dp->type, dp->subtype);
+    }
+    return buffer + len;
+}
+
+static inline
+char16_t* _device_instance_end(char16_t* buffer, efi_device_path_t dp) {
+    *(buffer++) = u',';
+    return buffer;
+}
+
+char16_t* device_path_to_string(
+    char16_t* buffer,
+    efi_device_path_t dp
+) {
+    EFILIB_ASSERT(dp);
+    for(; !IsDevicePathEndNode(dp); dp = NextDevicePathNode(dp)) {
+        EFILIB_ASSERT(dp->type != 0);
+        if (dp->type == HARDWARE_DEVICE_PATH) {
+            if (dp->subtype == HW_MEMMAP_DP)
+                buffer = _device_path_memmap(buffer, (efi_memory_device_path_t) dp);
+            else if (dp->subtype == HW_VENDOR_DP)
+                buffer = _device_path_vendor(buffer, (efi_vendor_device_path_t) dp);
+            else
+                buffer = _device_path_unknown(buffer, dp);
+        } else if (dp->type == MEDIA_DEVICE_PATH) {
+            if (dp->subtype == MEDIA_PARTITION_DP)
+                buffer = _device_path_partition(buffer, (efi_partition_device_path_t) dp);
+            else if (dp->subtype == MEDIA_VENDOR_DP)
+                buffer = _device_path_vendor(buffer, (efi_vendor_device_path_t) dp);
+            else if (dp->subtype == MEDIA_FILEPATH_DP)
+                buffer = _device_path_filepath(buffer, (efi_filepath_t) dp);
+            else
+                buffer = _device_path_unknown(buffer, dp);
+        } else if (dp->type == MESSAGING_DEVICE_PATH) {
+            if (dp->subtype == MSG_SCSI_DP) {
+                buffer = _device_path_scsi(buffer, (efi_scsi_device_path_t) dp);
+            } else if (dp->subtype == MSG_SATA_DP) {
+                buffer = _device_path_sata(buffer, (efi_sata_device_path_t) dp);
+            } else if (dp->subtype == MSG_USB_DP) {
+                buffer = _device_path_usb(buffer, (efi_usb_device_path_t) dp);
+            } else if (dp->subtype == MSG_SD_DP)
+                buffer = _device_path_sd(buffer, (efi_sd_device_path_t) dp);
+            else
+                buffer = _device_path_unknown(buffer, dp);
+        } else if (dp->type == END_DEVICE_PATH_TYPE) {
+            if (dp->subtype == END_INSTANCE_DEVICE_PATH_SUBTYPE)
+                buffer = _device_instance_end(buffer, dp);
+        } else {
+            buffer = _device_path_unknown(buffer, dp);
+        }
+        if (!IsDevicePathEndNode(NextDevicePathNode(dp)))
+            *(buffer++) = u'/';
+        *buffer = u'\0';
+    }
+    return buffer;
+}
+
 #if EFILIB_ERROR_MESSAGES
 static struct {
     efi_status_t code;
@@ -290,9 +431,11 @@ static inline
 void ptr_flush(
     struct print_state* ps
 ) {
-    *ps->pos = 0;
-    ps->output(ps->context, ps->buffer, ps->len - ((uint8_t*) ps->pos - (uint8_t*) ps->buffer));
-    ps->pos = ps->buffer;
+    if (ps->output) {
+        *ps->pos = u'\0';
+        ps->output(ps->context, ps->buffer);
+        ps->pos = ps->buffer;
+    }
 }
 
 static inline
@@ -312,18 +455,18 @@ void ptr_setattr(
 }
 
 static inline
-void ptr_putc (
+void ptr_putc(
     struct print_state* ps,
     char16_t c
 ) {
     /* if this is a newline, add a carraige return */
-    if (c == '\n') {
-        ptr_putc (ps, '\r');
+    if (c == u'\n' && ps->add_cr) {
+        ptr_putc(ps, u'\r');
     }
 
     *ps->pos = c;
-    ps->pos += 1;
-    ps->len += 1;
+    ps->pos++;
+    ps->len++;
 
     /* if at the end of the buffer, flush it */
     if (ps->pos >= ps->end) {
@@ -335,7 +478,7 @@ static inline
 char16_t ptr_getc(
     struct ptr* p
 ) {
-    char16_t c = '?';
+    char16_t c = u'?';
     if (p->is_ascii)  {
         int ret = mbtowc(&c, p->pb + p->index, 8);
         if (ret > 0)
@@ -345,7 +488,7 @@ char16_t ptr_getc(
 }
 
 static inline
-void ptr_item (
+void ptr_item(
     struct print_state *ps
 ) {
     /* Get the length of the item */
@@ -399,17 +542,15 @@ void ptr_item (
 efi_size_t _print(
     struct print_state* ps
 ) {
+    EFILIB_ASSERT(ps);
+
     char16_t c;
     struct _pitem item;
-    char16_t buffer[PRINT_STRING_LEN];
 
     ps->len = 0;
-    ps->buffer = buffer;
-    ps->pos = buffer;
-    ps->end = buffer + PRINT_STRING_LEN - 1;
     ps->item = &item;
-
     ps->fmt.index = 0;
+
     while ((c = ptr_getc(&ps->fmt))) {
         if (c != '%') {
             ptr_putc(ps, c);
@@ -516,12 +657,12 @@ efi_size_t _print(
                 __fallthrough__;
                 case 'x':
                     if (item.is_short) {
-                        value_to_hex_string (
+                        value_to_hex_string(
                             item.scratch,
                             (uint16_t) va_arg(ps->args, uint32_t)
                         );
                     } else {
-                        value_to_hex_string (
+                        value_to_hex_string(
                             item.scratch,
                             item.is_long ?
                                 va_arg(ps->args, uint64_t) :
@@ -530,14 +671,19 @@ efi_size_t _print(
                     item.fmt.pu = item.scratch;
                     break;
 
+                case 'D':
+                    device_path_to_string(item.scratch, va_arg(ps->args, efi_device_path_t));
+                    item.fmt.pu = item.scratch;
+                    break;
+
                 case 'g':
-                    guid_to_string (item.scratch, va_arg(ps->args, efi_guid_t));
+                    guid_to_string(item.scratch, va_arg(ps->args, efi_guid_t));
                     item.fmt.pu = item.scratch;
                     break;
 
                 case 'u':
                     if (item.is_short) {
-                        value_to_string (
+                        value_to_string(
                             item.scratch,
                             (uint16_t) va_arg(ps->args, int)
                         );
@@ -650,37 +796,61 @@ efi_size_t _iprint(
     va_list args
 ) {
     EFILIB_ASSERT(out != NULL);
+    
+    char16_t buffer[PRINT_STRING_LEN];
     struct print_state ps = { 0 };
-    efi_size_t ret;
 
     ps.context = out;
     ps.output = (output_string) out->output_string;
     ps.set_attr = (output_setattr) out->set_attribute;
+    ps.add_cr = true;
+    ps.buffer = buffer;
+    ps.pos = buffer;
+    ps.end = buffer + PRINT_STRING_LEN - 1;
 
     /* some UEFI implementation do not store/provide console attributes */
     ps.attr = out->mode->attribute
         ? out->mode->attribute
         : EFILIB_PRINT_NORMAL_COLOR | EFI_BACKGROUND_BLACK;
 
-    ret = ps.attr & 0xf0;
-    ps.attr_norm = EFILIB_PRINT_NORMAL_COLOR | ret;
-    ps.attr_highlight = EFILIB_PRINT_HIGHLIGHT_COLOR | ret;
-    ps.attr_error = EFILIB_PRINT_ERROR_COLOR | ret;
+    ps.attr_norm = ps.attr & 0xff;
+    ps.attr_highlight = EFILIB_PRINT_HIGHLIGHT_COLOR | (ps.attr & 0xf0);
+    ps.attr_error = EFILIB_PRINT_ERROR_COLOR | (ps.attr & 0xf0);
     
     if (fmt) {
         ps.fmt.pu = fmt;
-    } else {
+    } else if (fmta) {
         ps.fmt.is_ascii =true;
         ps.fmt.pb = fmta;
-    }
+    } else
+        return 0;
 
     if (column != (efi_size_t) -1)
         out->set_cursor_position(out, column, row);
 
     va_copy(ps.args, args);
-    ret = _print(&ps);
+    efi_size_t ret = _print(&ps);
     va_end(ps.args);
     return ret;
 }
 
-#endif /* EFILIB_PRINTF */ 
+efi_size_t vswprintf(
+    char16_t* restrict str,
+    size_t maxlen,
+    const char16_t* restrict fmt,
+    va_list args
+) {
+    EFILIB_ASSERT(str != NULL);
+
+    struct print_state ps = { 0 };
+    ps.buffer = str;
+    ps.pos = str;
+    ps.end = str + maxlen - 1; 
+    ps.fmt.pu = fmt;   
+
+    va_copy(ps.args, args);
+    efi_size_t ret = _print(&ps);
+    *ps.pos = '\0';
+    va_end(ps.args);
+    return ret;
+}

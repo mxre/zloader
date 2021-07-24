@@ -9,3 +9,4 @@ extern efi_boot_services_table_t BS;
 extern efi_runtime_services_table_t RT;
 extern efi_memory_t _EFI_POOL_ALLOCATION;
 extern efi_loaded_image_t EFI_LOADED_IMAGE;
+extern uint64_t BOOT_TIME_USECS;

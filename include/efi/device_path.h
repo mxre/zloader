@@ -24,6 +24,9 @@ typedef struct efi_device_path_protocol* efi_device_path_t;
 		(a)->subtype = END_ENTIRE_DEVICE_PATH_SUBTYPE; \
 		(a)->length = sizeof(struct efi_device_path_protocol); }
 
+#define IsDevicePathEndNode(a) ((a)->type == END_DEVICE_PATH_TYPE && (a)->subtype == END_ENTIRE_DEVICE_PATH_SUBTYPE)
+#define NextDevicePathNode(a) ((efi_device_path_t) ((uint8_t*)(a) + (a)->length))
+
 /*==========================================================================*
  *  Hardware Device Path
  *==========================================================================*/
@@ -61,13 +64,56 @@ typedef struct efi_vendor_device_path* efi_vendor_device_path_t;
  *==========================================================================*/
 #define MESSAGING_DEVICE_PATH           0x03
 
+#define MSG_SCSI_DP                     0x02
+
+struct __packed efi_scsi_device_path {
+    struct efi_device_path_protocol hdr;
+    uint16_t target;
+    uint16_t lun;
+};
+
+typedef struct efi_scsi_device_path* efi_scsi_device_path_t;
+
+#define MSG_USB_DP                      0x05
+
+struct __packed efi_usb_device_path {
+    struct efi_device_path_protocol hdr;
+    uint8_t port;
+    uint8_t endpoint;
+};
+
+typedef struct efi_usb_device_path* efi_usb_device_path_t;
+
+#define MSG_SATA_DP                     0x12
+
+struct __packed efi_sata_device_path {
+    struct efi_device_path_protocol hdr;
+    uint16_t hba_port;
+    uint16_t port_multiplier_number;
+    uint16_t lun;
+};
+
+typedef struct efi_sata_device_path* efi_sata_device_path_t;
+
+/* Devices on the SD Card bus */
+#define MSG_SD_DP                       0x1A
+
+struct __packed efi_sd_device_path {
+    struct efi_device_path_protocol hdr;
+    uint8_t slot_number;
+};
+
+typedef struct efi_sd_device_path* efi_sd_device_path_t;
+
+#define MSG_EMMC_DP                     0x1D    ///< use struct efi_sd_device_path
+
 /*==========================================================================*
  *  Media Device Path
  *==========================================================================*/
 #define MEDIA_DEVICE_PATH               0x04
 
-/* Disk Partition */
-#define MEDIA_HARDDRIVE_DP              0x01
+/* Disk Partition (EFI specs calls this confusingly a "harddrive") */
+#define MEDIA_PARTITION_DP              0x01
 
 struct __packed efi_partition_device_path {
     struct efi_device_path_protocol hdr;
@@ -88,8 +134,7 @@ typedef struct efi_partition_device_path* efi_partition_device_path_t;
 #define SIGNATURE_TYPE_GUID                 0x02
 
 /* Vendor Device */
-#define MEDIA_VENDOR_DP                     0x03
-/* struct definition in hardware device path section */
+#define MEDIA_VENDOR_DP                     0x03 ///< use efi_vendor_device_path
 
 /* File Path */
 #define MEDIA_FILEPATH_DP                   0x04
@@ -99,7 +144,3 @@ struct __packed efi_filepath {
 };
 
 typedef struct efi_filepath* efi_filepath_t;
-
-
-
-

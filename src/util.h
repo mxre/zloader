@@ -102,3 +102,5 @@ efi_device_path_t create_memory_mapped_device_path(
     efi_size_t size,
     efi_memory_t type
 );
+
+efi_status_t get_part_uuid_from_device_path(efi_device_path_t path, efi_guid_t guid);

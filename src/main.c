@@ -33,6 +33,11 @@ efi_status_t image_start(efi_handle_t* image, simple_buffer_t options) {
         loaded_image->load_options_size = buffer_len(options);
     }
 
+    if (BOOT_TIME_USECS)
+        efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
+            EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+            u"%lu", monotonic_time_usec() - BOOT_TIME_USECS);
+    _MESSAGE("StartImage: %D", loaded_image->file_path);
     err = BS->start_image(image, NULL, NULL);
     if (EFI_ERROR(err)) {
         _ERROR("Unable to start image: %r", err);
@@ -60,6 +65,7 @@ efi_status_t execute_image_from_memory(
     err = BS->load_image(false, EFI_IMAGE, (efi_device_path_t) dp, buffer_pos(buffer), buffer_len(buffer), &image);
 
     if (image) {
+        _MESSAGE("StartImage: %D", dp);
         err = image_start(image, options);
         if (EFI_ERROR(err)) {
             _ERROR("ImageStart Error: %r", err);
@@ -80,6 +86,11 @@ efi_status_t execute_image_from_memory(
             loaded_image->load_options_size = buffer_len(options);
         }
         // ST->out->reset(ST->out, false);
+        if (BOOT_TIME_USECS)
+            efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
+                EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                u"%lu", monotonic_time_usec() - BOOT_TIME_USECS);
+        _MESSAGE("StartImage: %D", loaded_image->file_path);
         err = entry_point(image, ST);
 
         loaded_image->unload(image);
@@ -102,24 +113,41 @@ efi_status_t efi_main(
     efi_status_t err = EFI_SUCCESS;
     bool secure_boot = false;
     {
-        uint32_t attributes;
-        efi_size_t data_size = 1;
-        uint8_t data[data_size];
-        err = RT->get_variable(u"SecureBoot", &efi_global_variable_guid, &attributes, &data_size, &data);
-        if (EFI_ERROR(err)) {
-            _ERROR("GetVariable {%g} %ls %r", &efi_global_variable_guid, u"SecureBoot", err);
+        efi_size_t data_size = 1; uint8_t data[data_size];
+        err = efi_var_get(&efi_global_variable_guid, u"SecureBoot", NULL, &data_size, data);
+        if (EFI_ERROR(err))
             return err;
-        }
         secure_boot = data[0] == 1;
     }
     if (secure_boot)
         _MESSAGE("Running in SECURE mode");
 
-    err = RT->set_variable(u"StubInfo", &loader_guid, EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-        wcslen(_u(PROGRAM_NAME) u" " _u(PROGRAM_VERSION)) * sizeof(char16_t), _u(PROGRAM_NAME) u" " _u(PROGRAM_VERSION));
-    if (EFI_ERROR(err)) {
-        _ERROR("SetVariable {%g} %ls %r", &loader_guid, u"StubInfo", err);
+    efi_var_set_printf(&loader_guid, u"StubInfo",
+        EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+        u"%s %s", PROGRAM_NAME, PROGRAM_VERSION);
+
+    if (!efi_var_attributes(&loader_guid, u"LoaderTimeInitUSec") && BOOT_TIME_USECS) {
+        efi_var_set_printf(&loader_guid, u"LoaderTimeInitUSec",
+            EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+            u"%lu", BOOT_TIME_USECS);
     }
+
+    efi_var_set_printf(&loader_guid, u"LoaderFirmwareInfo",
+        EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+        u"%ls %hx.%02hx", ST->firmware_vendor, ST->firmware_revision >> 16, ST->firmware_revision);
+
+    efi_var_set_printf(&loader_guid, u"LoaderFirmwareType",
+        EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+        u"UEFI %hu.%02hu", ST->hdr.revision >> 16, ST->hdr.revision);
+    
+    _MESSAGE("File %D", EFI_LOADED_IMAGE->file_path);
+    efi_device_path_protocol_t dp;
+    BS->open_protocol(EFI_LOADED_IMAGE->device_handle, &efi_device_path_protocol_guid, (void**) &dp,
+        EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+    _MESSAGE("Drive %D", dp);
+    struct efi_guid part_guid;
+    if (EFI_SUCCESS == get_part_uuid_from_device_path(dp, &part_guid))
+        _MESSAGE("Part %g");
 
     /* get the relevant sections from the image */
     struct PE_locate_sections sections[] = {
@@ -203,7 +231,6 @@ efi_status_t efi_main(
         goto end;
     }
 end:
-    _MESSAGE("program end");
     initrd_deregister();
 #ifdef SHUTDOWN
     _MESSAGE("system is now shutting down");

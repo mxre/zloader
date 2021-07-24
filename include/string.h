@@ -3,4 +3,5 @@
  */
 #pragma once
 
-#include <efilib.h>
+#include "efilib/rtlib.h"
+#include "efilib/string.h"

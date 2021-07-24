@@ -16,7 +16,8 @@
 #pragma once
 
 #include "efi/defs.h"
-#include "efilib/debug.h"
+#include "config.h"
+#include "debug.h"
 
 [[ gnu::malloc, nodiscard ]]
 void* malloc(

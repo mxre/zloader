@@ -13,7 +13,7 @@ FILEFLAGSMASK 0
       VALUE "FileVersion", "0.1"
       VALUE "ProductVersion", "0.1"
       VALUE "ProductName", "zloader"
-      VALUE "FileDescription", "zloader"
+      VALUE "FileDescription", "EFI Stub for Kernels using Compression"
       VALUE "OriginalFilename", "zloader.efi"
     }
   }

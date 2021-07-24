@@ -126,11 +126,31 @@ char16_t* wcscpy (
     char16_t* restrict dst,
     const char16_t* restrict src
 ) {
-    while (*src) {
+    while (*src)
+        *(dst++) = *(src++);
+    return dst;
+}
+
+static inline
+char16_t* wcsncpy (
+    char16_t* restrict dst,
+    const char16_t* restrict src,
+    efi_size_t n
+) {
+    while (n-- && *src) {
         *(dst++) = *(src++);
     }
-    *dst = 0;
     return dst;
+}
+
+static inline
+char16_t* wcsncat(
+    char16_t* restrict dst,
+    const char16_t* restrict src,
+    efi_size_t n
+) {
+    while (*dst) dst++;
+    return wcsncpy(dst, src, n);
 }
 
 /**
@@ -230,3 +250,4 @@ efi_size_t mbstowcs(
     const char8_t* restrict src,
     efi_size_t len
 );
+

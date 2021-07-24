@@ -28,3 +28,5 @@ bool guidcmp(efi_guid_t a, efi_guid_t b) {
     return memcpy(a, b, sizeof(struct efi_guid)) == 0;
 #endif
 }
+
+#define guidcpy(a, b) memcpy(a, b, sizeof(struct efi_guid))

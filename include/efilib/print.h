@@ -37,10 +37,12 @@
  *   c       -   char
  *   t       -   EFI time structure (printed as ISO 8601)
  *   g       -   GUID (from pointer)
+ *   D       -   EFI Device Path
  *   r       -   EFI status message (from status code)
  *
  *   %       -   Print a %
  */
+#pragma once
 
 #include <efi.h>
 #include "externs.h"
@@ -72,7 +74,7 @@ efi_status_t print(
  */
 #define EFILIB_PRINT_ERROR_COLOR       EFI_LIGHTRED
 
-#ifdef EFILIB_PRINTF
+#if EFILIB_PRINTF
 
 #include <stdargs.h>
 
@@ -80,14 +82,21 @@ efi_size_t _iprint(
     efi_size_t column,
     efi_size_t row,
     efi_simple_text_output_protocol_t out,
-    const char16_t* fmt,
-    const char8_t* fmta,
+    const char16_t* restrict fmt,
+    const char8_t* restrict fmta,
+    va_list args
+);
+
+efi_size_t vswprintf(
+    char16_t* restrict str,
+    size_t maxlen,
+    const char16_t* restrict fmt,
     va_list args
 );
 
 static inline
 efi_size_t wprintf(
-    const char16_t* fmt,
+    const char16_t* restrict fmt,
     ...
 ) {
     va_list args;
@@ -102,7 +111,7 @@ static inline
 efi_size_t wprintf_at(
     efi_size_t column,
     efi_size_t row,
-    const char16_t* fmt,
+    const char16_t* restrict fmt,
     ...
 ) {
     va_list args;
@@ -113,41 +122,68 @@ efi_size_t wprintf_at(
     return ret;
 }
 
+static inline 
+efi_size_t wsprintf(
+    char16_t* restrict str,
+    efi_size_t maxlen,
+    const char16_t* restrict fmt,
+    ...
+) {
+    va_list args;
+    va_start(args, fmt);
+    efi_size_t ret = vswprintf(str, maxlen, fmt, args);
+    va_end(args);
+    return ret;
+}
 
 [[ gnu::format(printf, 1, 2) ]]
 static inline
 efi_size_t printf(
-    const char8_t* fmt,
+    const char8_t* restrict fmt,
     ...
 ) {
     va_list args;
-    efi_size_t ret;
     va_start(args, fmt);
-    ret = _iprint((efi_size_t) -1, (efi_size_t) -1, ST->out, NULL, fmt, args);
+    efi_size_t ret = _iprint((efi_size_t) -1, (efi_size_t) -1, ST->out, NULL, fmt, args);
+    va_end(args);
+    return ret;
+}
+
+[[ gnu::format(printf, 3, 4) ]]
+static inline
+efi_size_t printf_at(
+    efi_size_t column,
+    efi_size_t row,
+    const char8_t* restrict fmt,
+    ...
+) {
+    va_list args;
+    va_start(args, fmt);
+    efi_size_t ret = _iprint(column, row, ST->out, NULL, fmt, args);
     va_end(args);
     return ret;
 }
 
 char16_t*  value_to_string(
-    char16_t* buffer,
+    char16_t* restrict buffer,
     int64_t value
 );
 
 char16_t*  value_to_hex_string(
-    char16_t* buffer,
+    char16_t* restrict buffer,
     uint64_t value
 );
 
-#ifdef EFILIB_FLOATING_POINT
+#if EFILIB_FLOATING_POINT
 char16_t* float_to_string (
-    char16_t* buffer,
+    char16_t* restrict buffer,
     double value
 );
 #endif
 
 char16_t* time_to_string (
-    char16_t* buffer,
-    efi_time_t time
+    char16_t* restrict buffer,
+    efi_time_t restrict time
 );
 
 #endif /* EFILIB_PRINTF */

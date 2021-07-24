@@ -11,9 +11,12 @@
  */
 #include "pe.h"
 
+#include <efi.h>
+#include <efilib.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 #include <assert.h>
 
 #include "minmax.h"
@@ -106,8 +109,7 @@ static inline
 efi_status_t is_loadable(
     PE_image_headers_t pe
 ) {
-    assert(ctx);
-    assert(ctx->pe);
+    assert(pe);
 
     /* I did not test bigendian so better just disallow it */
     if ((pe->file_header.characteristics & (PE_HEADER_BYTES_REVERSED_LO | PE_HEADER_BYTES_REVERSED_HI))) {

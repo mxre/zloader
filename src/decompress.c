@@ -5,10 +5,10 @@
 #include <string.h>
 #include <efilib.h>
 #include <assert.h>
+#include <minmax.h>
 
 #include "util.h"
 #include "pe.h"
-#include "minmax.h"
 
 #ifdef USE_LZ4
 # include <lz4.h>

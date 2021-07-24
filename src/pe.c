@@ -85,7 +85,6 @@ bool PE_locate_sections(
             ls->offset = sec->pointer_to_raw_data;
             ls->size = sec->virtual_size;
         }
-        
     }
 
     return true;
