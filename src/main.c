@@ -36,7 +36,7 @@ efi_status_t image_start(efi_handle_t* image, simple_buffer_t options) {
     if (BOOT_TIME_USECS)
         efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
             EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-            u"%lu", monotonic_time_usec() - BOOT_TIME_USECS);
+            u"%lu", monotonic_time_usec());
     _MESSAGE("StartImage: %D", loaded_image->file_path);
     err = BS->start_image(image, NULL, NULL);
     if (EFI_ERROR(err)) {
@@ -89,7 +89,7 @@ efi_status_t execute_image_from_memory(
         if (BOOT_TIME_USECS)
             efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
                 EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                u"%lu", monotonic_time_usec() - BOOT_TIME_USECS);
+                u"%lu", monotonic_time_usec());
         _MESSAGE("StartImage: %D", loaded_image->file_path);
         err = entry_point(image, ST);
 
@@ -100,28 +100,8 @@ efi_status_t execute_image_from_memory(
     return err;
 }
 
-efi_api
-efi_status_t efi_main(
-    efi_handle_t image,
-    efi_system_table_t sys_table
-) {
-    initialize_library(image, sys_table);
-    _MESSAGE("program begin");
-
-    assert(EFI_LOADED_IMAGE);
-
-    efi_status_t err = EFI_SUCCESS;
-    bool secure_boot = false;
-    {
-        efi_size_t data_size = 1; uint8_t data[data_size];
-        err = efi_var_get(&efi_global_variable_guid, u"SecureBoot", NULL, &data_size, data);
-        if (EFI_ERROR(err))
-            return err;
-        secure_boot = data[0] == 1;
-    }
-    if (secure_boot)
-        _MESSAGE("Running in SECURE mode");
-
+static inline
+void set_systemd_variables() {
     efi_var_set_printf(&loader_guid, u"StubInfo",
         EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
         u"%s %s", PROGRAM_NAME, PROGRAM_VERSION);
@@ -140,14 +120,46 @@ efi_status_t efi_main(
         EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
         u"UEFI %hu.%02hu", ST->hdr.revision >> 16, ST->hdr.revision);
     
-    _MESSAGE("File %D", EFI_LOADED_IMAGE->file_path);
+    if (!efi_var_attributes(&loader_guid, u"LoaderImageIdentifier")) {
+        efi_var_set_printf(&loader_guid, u"LoaderImageIdentifier",
+            EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+            u"%D", EFI_LOADED_IMAGE->file_path);
+    }
+    
     efi_device_path_protocol_t dp;
     BS->open_protocol(EFI_LOADED_IMAGE->device_handle, &efi_device_path_protocol_guid, (void**) &dp,
         EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
-    _MESSAGE("Drive %D", dp);
+    _MESSAGE("EFI Root %D", dp);
     struct efi_guid part_guid;
-    if (EFI_SUCCESS == get_part_uuid_from_device_path(dp, &part_guid))
-        _MESSAGE("Part %g");
+    if (EFI_SUCCESS == get_part_uuid_from_device_path(dp, &part_guid)
+        && !efi_var_attributes(&loader_guid, u"LoaderDevicePartUUID")
+    ) {
+        efi_var_set_printf(&loader_guid, u"LoaderDevicePartUUID",
+            EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+            u"%g", part_guid);
+    }   
+}
+
+efi_api
+efi_status_t efi_main(
+    efi_handle_t image,
+    efi_system_table_t sys_table
+) {
+    initialize_library(image, sys_table);
+
+    assert(EFI_LOADED_IMAGE);
+
+    efi_status_t err = EFI_SUCCESS;
+    bool secure_boot = false;
+    {
+        efi_size_t data_size = 1; uint8_t data[data_size];
+        if (EFI_SUCCESS == efi_var_get(&efi_global_variable_guid, u"SecureBoot", NULL, &data_size, data))
+            secure_boot = data[0] == 1;
+    }
+    if (secure_boot)
+        _MESSAGE("Running in %TSECURE%N mode", EFI_GREEN);
+
+    set_systemd_variables();
 
     /* get the relevant sections from the image */
     struct PE_locate_sections sections[] = {
@@ -233,7 +245,7 @@ efi_status_t efi_main(
 end:
     initrd_deregister();
 #ifdef SHUTDOWN
-    _MESSAGE("system is now shutting down");
+    _MESSAGE("System is now shutting down...");
     RT->reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
 #endif
     stall_on_exit();

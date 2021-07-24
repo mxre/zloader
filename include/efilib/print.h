@@ -12,19 +12,14 @@
  *               l = field width
  *               F = format of arg
  * 
- * Args modifing F:
- *   0       -   pad with zeros
- *   -       -   justify on left (default is on right)
- *   *       -   width provided on stack
- *   n       -   Set output attribute to normal (for this field only)
- *   b       -   Set output attribute to highlight (for this field only)
- *   e       -   Set output attribute to error (for this field only)
- *   l       -   Value is 64 bits, or char/string is wide
- *   h       -   Value is 16 bits
- *   z       -   Value is of size_t (32 or 64 bits)
+ *
+ * Standalone output format changes
+ *   A       -   Set output attribute from value
+ *   T       -   Set output text color from value
  *   N       -   Set output attribute to normal
  *   B       -   Set output attribute to highlight
  *   E       -   Set output attribute to error
+ *   %       -   Print a %
  * 
  * Args F:
  *   s       -   string
@@ -39,8 +34,17 @@
  *   g       -   GUID (from pointer)
  *   D       -   EFI Device Path
  *   r       -   EFI status message (from status code)
- *
- *   %       -   Print a %
+ * 
+ * Args modifing F:
+ *   0       -   pad with zeros
+ *   -       -   justify on left (default is on right)
+ *   *       -   width provided on stack
+ *   n       -   Set output attribute to normal (for this field only)
+ *   b       -   Set output attribute to highlight (for this field only)
+ *   e       -   Set output attribute to error (for this field only)
+ *   l       -   Value is 64 bits, or char/string is wide
+ *   h       -   Value is 16 bits
+ *   z       -   Value is of size_t (32 or 64 bits)
  */
 #pragma once
 
@@ -62,7 +66,7 @@ efi_status_t print(
 /**
  * @brief color for normal text
  */
-#define EFILIB_PRINT_NORMAL_COLOR      EFI_WHITE
+#define EFILIB_PRINT_NORMAL_COLOR      EFI_LIGHTGRAY
 
 /**
  * @brief color for highlighted text

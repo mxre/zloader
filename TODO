@@ -1,4 +1,4 @@
-add UEFI variable handling
-cleanup makefile
-GUID format fix according to specs
+cleanup makefile (cmake?)
+readme
+licenses
 exit OOM conditions in library

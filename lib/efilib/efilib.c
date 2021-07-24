@@ -1,6 +1,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include <minmax.h>
 #include "efi/pe.h"
 
 efi_handle_t EFI_IMAGE = NULL;
@@ -17,19 +18,19 @@ uint64_t BOOT_TIME_USECS = 0;
  */
 static inline
 uint64_t ticks_read() {
-    /* x64 and some i686 may know rdtscd which could be more accurate
+    /* x64 and some i686 may know rdtscp which could be more accurate
        but this requires feature testing with cpu id */
 #ifdef __x86_64__
     uint64_t a, d;
-    __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
+    __asm__ volatile ("rdtsc" : "=a"(a), "=d"(d));
     return (d << 32) | a;
 #elif defined(__i386__)
     uint64_t val;
-    __asm__ volatile ("rdtsc" : "=A" (val));
+    __asm__ volatile ("rdtsc" : "=A"(val));
     return val;
 #elif defined(__aarch64__)
     uint64_t val;
-    __asm__ volatile ("mrs %0, cntvct_el0" : "=r" (val));
+    __asm__ volatile ("mrs %0, cntpct_el0" : "=r"(val));
     return val;
 #else
     return 0;
@@ -43,16 +44,17 @@ static uint64_t freq = 0;
  */
 static inline
 uint64_t ticks_freq() {
-    uint64_t ticks_start, ticks_end;
+    uint64_t freq;
+#if defined(__aarch64__)
+    __asm__ volatile ("mrs %0, cntfrq_el0": "=r"(freq));
+#else
+    uint64_t ticks_start;
     ticks_start = ticks_read();
-    stall(1000);
-    ticks_end = ticks_read();
-
-    EFILIB_DBG_PRINTF("boottime: %.4fs counter freq: %lu",
-        ticks_start / ((ticks_end - ticks_start) * 1000.0),
-        ticks_end - ticks_start);
-
-    return (ticks_end - ticks_start) * UINT64_C(1000);
+    stall(500);
+    freq = (ticks_read() - ticks_start) / UINT64_C(500);
+#endif
+    EFILIB_DBG_PRINTF("boottime: %.4fms counter freq: %lu", UINT64_C(1000) * BOOT_TIME_USECS / (double) freq, freq);
+    return freq;
 }
 
 static inline

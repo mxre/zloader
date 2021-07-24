@@ -32,6 +32,17 @@ typedef struct efi_device_path_protocol* efi_device_path_t;
  *==========================================================================*/
 #define HARDWARE_DEVICE_PATH            0x01
 
+/* PCI */
+#define HW_PCI_DP                       0x01
+
+struct __packed efi_pci_device_path {
+    struct efi_device_path_protocol hdr;
+    uint8_t function;
+    uint8_t device;
+};
+
+typedef struct efi_pci_device_path* efi_pci_device_path_t;
+
 /* Memory Device */
 #define HW_MEMMAP_DP                    0x03
 
@@ -50,6 +61,7 @@ typedef struct efi_memory_device_path* efi_memory_device_path_t;
 struct __packed efi_vendor_device_path {
     struct efi_device_path_protocol hdr;
     struct efi_guid guid;
+    uint8_t data[];
 };
 
 typedef struct efi_vendor_device_path* efi_vendor_device_path_t;
@@ -58,6 +70,34 @@ typedef struct efi_vendor_device_path* efi_vendor_device_path_t;
  *  ACPI Device Path
  *==========================================================================*/
 #define ACPI_DEVICE_PATH                 0x02
+
+#define ACPI_DP                          0x01
+struct __packed efi_acpi_device_path {
+    struct efi_device_path_protocol hdr;
+
+    /**
+     * @brief Device's PnP hardware ID stored in a numeric 32-bit compressed
+     * EISA-type ID. This value must match the corresponding _HID in the
+     * ACPI name space
+     */
+    uint32_t hid;
+
+    /**
+     * @brief Unique ID that is required by ACPI if two devices have the same
+     * HID. This value must also match the corresponding UID/HID
+     * pair in the ACPI name space. Only the 32-bit numeric value type of
+     * UID is supported; thus strings must not be used for the UID in
+     * the ACPI name space 
+     */
+    uint32_t uid;
+};
+
+#define EISA_PNP_ID_CONST 0x41d0
+#define EISA_IS_PNP(id) (((uint16_t) (id)) == EISA_PNP_ID_CONST)
+#define EISA_PNP_ID(id) (uint32_t)(((id) << 16) | EISA_PNP_ID_CONST)
+#define EISA_PNP_NUM(id) ((uint16_t)((id) >> 16))
+
+typedef struct efi_acpi_device_path* efi_acpi_device_path_t;
 
 /*==========================================================================*
  *  Messaging  Device Path
