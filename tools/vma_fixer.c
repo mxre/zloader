@@ -180,11 +180,7 @@ int main(int argc, char* argv[]) {
             subsystem_version(pe, 32) = efi_version;
             operation_system_version(pe, 32) = efi_version;
         }
-        if ((pe->optional_header32.DLL_characteristics & PE_HEADER_DLLCHARACTERISTICS_DYNAMIC_BASE) == 0) {
-            fprintf(stderr, "file marked as unrelocateable a loadtime\n");
-            return 1;
-        }
-        /* https://github.com/rhboot/shim/blob/main/pe.c suggests that this is a possibility (althoug llvm does this right)*/
+ 
         fix_alignment_header(pe, 32);
         section_alignment = pe->optional_header32.section_alignment;
         file_alignment = pe->optional_header32.file_alignment;
@@ -195,10 +191,7 @@ int main(int argc, char* argv[]) {
             subsystem_version(pe, 64) = efi_version;
             operation_system_version(pe, 64) = efi_version;
         }
-        if ((pe->optional_header64.DLL_characteristics & PE_HEADER_DLLCHARACTERISTICS_DYNAMIC_BASE) == 0) {
-            fprintf(stderr, "file marked as unrelocateable a loadtime\n");
-            return 1;
-        }
+
         fix_alignment_header(pe, 64);
         section_alignment = pe->optional_header64.section_alignment;
         file_alignment = pe->optional_header64.file_alignment;
@@ -225,6 +218,10 @@ int main(int argc, char* argv[]) {
         (uint8_t*) pe + sizeof(struct PE_COFF_header)
         + pe->file_header.size_of_optional_header);
     for (uint16_t i = pe->file_header.number_of_sections; i--; section++) {
+        if (section->size_of_raw_data == 0) {
+            fprintf(stderr, "section %.*s has size 0 and is and is empty", PE_SECTION_SIZE_OF_SHORT_NAME, section->name);
+            return;
+        }
         for (struct section_vma* s = section_vma; *s->name; s++) {
             if (strncmp(s->name, section->name, PE_SECTION_SIZE_OF_SHORT_NAME) == 0) {
                 /* only fix, if there is something to fix */
@@ -233,7 +230,7 @@ int main(int argc, char* argv[]) {
                     /* llvm-objcopy uses alignment 1 */
                     if (section->virtual_size == 0)
                         section->virtual_size = section->size_of_raw_data,
-                    section->characteristics = (section->characteristics & PE_SECTION_ALIGN_MASK) | s->flags;
+                    section->characteristics = s->flags;
 
                     /* fix gaps in section table */
                     section->size_of_raw_data = ALIGN_VALUE(section->pointer_to_raw_data + section->size_of_raw_data, file_alignment) - section->pointer_to_raw_data;
