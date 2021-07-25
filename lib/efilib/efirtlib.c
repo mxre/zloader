@@ -45,6 +45,25 @@ void free(void* p) {
     BS->free_pool(p);
 }
 
+__weak__
+inline
+void* memset (
+    void* buffer,
+    uint8_t value,
+    efi_size_t size    
+) {
+#if EFLLIB_USE_EFI_SET_MEM
+    EFILIB_ASSERT(BS);
+    BS->set_mem(buffer, size, value);
+#else
+    uint8_t* ptr = buffer;
+    while (size--) {
+        *(ptr++) = value;
+    }
+#endif
+    return buffer;
+}
+
 #ifdef memmove
 #undef memmove
 #endif

@@ -72,13 +72,7 @@
 #  endif
 #endif
 
-#ifndef noreturn
-#  if __is_identifier(_Noreturn)
-#    define noreturn _Noreturn
-#  else
-#    define noreturn
-#  endif
-#endif
+#include <stdnoreturn.h>
 
 #ifndef __unreachable__
 #  if __has_builtin(__builtin_unreachable)

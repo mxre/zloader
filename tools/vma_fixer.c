@@ -220,7 +220,7 @@ int main(int argc, char* argv[]) {
     for (uint16_t i = pe->file_header.number_of_sections; i--; section++) {
         if (section->size_of_raw_data == 0) {
             fprintf(stderr, "section %.*s has size 0 and is and is empty", PE_SECTION_SIZE_OF_SHORT_NAME, section->name);
-            return;
+            return 1;
         }
         for (struct section_vma* s = section_vma; *s->name; s++) {
             if (strncmp(s->name, section->name, PE_SECTION_SIZE_OF_SHORT_NAME) == 0) {

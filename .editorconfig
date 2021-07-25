@@ -9,6 +9,10 @@ tab_width = 4
 indent_style = space
 tab_width = 2
 
+[CMakeLists.txt]
+indent_style = space
+tab_width = 2
+
 [Makefile]
 indent_style = tab
 tab_width = 4

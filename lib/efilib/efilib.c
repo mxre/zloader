@@ -72,8 +72,6 @@ uint32_t get_pe_subsystem_version() {
     
     EFILIB_ERROR("LoadedImageProtocol::ImageBase is not a valid executable");
     exit(EFI_UNSUPPORTED);
-
-    __unreachable__;
 }
 
 void initialize_library(

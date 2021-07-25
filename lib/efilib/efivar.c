@@ -1,7 +1,7 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include <stdargs.h>
+#include <stdarg.h>
 
 void* efi_var_get_pool(
     const efi_guid_t guid,

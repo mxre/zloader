@@ -1,4 +1,3 @@
-cleanup makefile (cmake?)
 readme
 licenses
 exit OOM conditions in library

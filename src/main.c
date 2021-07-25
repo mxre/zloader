@@ -7,13 +7,6 @@
 #include "initrd.h"
 #include "systemd.h"
 
-static inline
-void stall_on_exit() {
-#ifdef EFILIB_STALL_ON_EXIT
-    stall(EFILIB_STALL_ON_EXIT);
-#endif
-}
-
 #if USE_EFI_LOAD_IMAGE
 static inline
 efi_status_t image_start(efi_handle_t* image, simple_buffer_t options) {
@@ -104,7 +97,7 @@ static inline
 void set_systemd_variables() {
     efi_var_set_printf(&loader_guid, u"StubInfo",
         EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-        u"%s %s", PROGRAM_NAME, PROGRAM_VERSION);
+        u"%s %s", LOADER_NAME, LOADER_VERSION);
 
     if (!efi_var_attributes(&loader_guid, u"LoaderTimeInitUSec") && BOOT_TIME_USECS) {
         efi_var_set_printf(&loader_guid, u"LoaderTimeInitUSec",
@@ -176,12 +169,12 @@ efi_status_t efi_main(
 
     if (!PE_locate_sections(sections)) {
         _ERROR("Could not read section table");
-        return EFI_UNSUPPORTED;
+        exit(EFI_UNSUPPORTED);
     }
 
     if (!sections[SECTION_LINUX].load_address || !sections[SECTION_LINUX].size) {
         _ERROR("No kernel embedded");
-        return EFI_UNSUPPORTED;
+        exit(EFI_UNSUPPORTED);
     }
 
     _cleanup_buffer struct simple_buffer options = { 0 };
@@ -244,10 +237,5 @@ efi_status_t efi_main(
     }
 end:
     initrd_deregister();
-#ifdef SHUTDOWN
-    _MESSAGE("System is now shutting down...");
-    RT->reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
-#endif
-    stall_on_exit();
-    return err;
+    exit(err);
 }

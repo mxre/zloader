@@ -80,7 +80,7 @@ efi_status_t print(
 
 #if EFILIB_PRINTF
 
-#include <stdargs.h>
+#include <stdarg.h>
 
 efi_size_t _iprint(
     efi_size_t column,

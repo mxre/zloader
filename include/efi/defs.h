@@ -39,8 +39,8 @@ struct efi_table_header {
 	uint32_t reserved;
 };
 
-#if __has_c_attribute(gnu::ms_abi) && __x86_64__ && !_WIN64
-#  define efi_api [[ gnu::ms_abi ]]
+#if __has_attribute(ms_abi) && __x86_64__ && !_WIN64
+#  define efi_api __attribute__(( ms_abi ))
 #else
 #  define efi_api
 #endif
