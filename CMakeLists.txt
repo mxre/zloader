@@ -58,4 +58,5 @@ add_subdirectory(src)
 add_executable(zloader src/main.rc $<TARGET_OBJECTS:src> $<TARGET_OBJECTS:efilib> $<TARGET_OBJECTS:lib> ${OPTIONAL_DEPENDENCIES})
 set_target_properties(zloader PROPERTIES
   SUFFIX "${EFI_ARCH}.efi.stub"
-  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main" )
+  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main"
+)

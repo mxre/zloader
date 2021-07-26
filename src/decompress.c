@@ -41,7 +41,7 @@ static_assert(
 static inline
 efi_status_t decompress_lz4(
     simple_buffer_t in,
-    aligned_buffer_t out
+    simple_buffer_t out
 ) {
     efi_status_t err;
 
@@ -70,7 +70,7 @@ efi_status_t decompress_lz4(
             goto end;
         }
 
-        if (!allocate_aligned_buffer(frame_info.contentSize, EFI_LOADER_DATA, out)) {
+        if (!allocate_simple_buffer(frame_info.contentSize, out)) {
             err = EFI_OUT_OF_RESOURCES;
             goto end;
         }
@@ -107,7 +107,7 @@ end:
     LZ4F_freeDecompressionContext(ctx);
 
     if (EFI_ERROR(err)) {
-        free_aligned_buffer(out);
+        out->free(out);
         out->allocated = 0;
         out->buffer = NULL;
     } else {
@@ -122,7 +122,7 @@ end:
 static inline
 efi_status_t decompress_zstd(
     simple_buffer_t in,
-    aligned_buffer_t out
+    simple_buffer_t out
 ) {
     efi_status_t err;
 
@@ -133,7 +133,7 @@ efi_status_t decompress_zstd(
         return EFI_UNSUPPORTED;
     }
 
-    if (!allocate_aligned_buffer(out->allocated, EFI_LOADER_DATA, out)) {
+    if (!allocate_simple_buffer(out->allocated, out)) {
         return EFI_OUT_OF_RESOURCES;
     }
 
@@ -172,7 +172,7 @@ end:
     ZSTD_freeDStream(zstream);
 
     if (EFI_ERROR(err)) {
-        free_aligned_buffer(out);
+        out->free(out);
         out->allocated = 0;
         out->buffer = NULL;
     } else {
@@ -185,7 +185,7 @@ end:
 
 efi_status_t decompress(
     simple_buffer_t in,
-    aligned_buffer_t out
+    simple_buffer_t out
 ) {
     if (!in || !out)
         return EFI_INVALID_PARAMETER;
@@ -209,16 +209,10 @@ efi_status_t decompress(
     /* directly pass on an uncompressed executable */
     if (PE_header(in) > 0) {
         _MESSAGE("detected EFI executable");
-        /* if the section is already aligned, then just pass it on */
-        if ((efi_physical_address_t) in->buffer % PAGE_SIZE == 0) {
-            out->buffer = in->buffer;
-            out->allocated = out->length = in->length;
-            out->pos = in->pos;
-        } else {
-            if (!allocate_aligned_buffer(buffer_len(in), EFI_LOADER_DATA, out))
-                return EFI_OUT_OF_RESOURCES;
-            memcpy(out->buffer, buffer_pos(in), buffer_len(in));
-        }
+        out->buffer = in->buffer;
+        out->allocated = out->length = in->length;
+        out->pos = in->pos;
+        out->free = NULL;
         return EFI_SUCCESS;
     } else {
         _MESSAGE("unsupported file format: %X", (*(uint32_t*) buffer_pos(in)));

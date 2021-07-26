@@ -14,6 +14,8 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#define PAGE_SIZE 0x1000 
+
 static struct PE_version16 efi_version = {
     .major = 2,
     .minor = 0
@@ -24,10 +26,10 @@ static struct section_vma {
     uint32_t target_vma;
     uint32_t flags;
 } section_vma[] = {
-    { .name = ".osrel",     .target_vma = 0x00020000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".cmdline",   .target_vma = 0x00030000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".linux",     .target_vma = 0x02000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".initrd",    .target_vma = 0x03000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".osrel",     .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".cmdline",   .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".linux",     .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".initrd",    .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
     { 0 }
 };
 
@@ -46,7 +48,6 @@ static inline void unmap_p(struct map* map) {
         munmap(map->p, map->size);
 }
 
-#define PAGE_SIZE 0x1000 /* default page size for intel and arm */
 #define ALIGN_VALUE(v, a) ((v) + (((a) - (v)) & ((a) - 1)))
 
 #define __join(a,b) a ## b

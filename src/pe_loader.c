@@ -29,7 +29,9 @@ struct pe_loader_ctx {
     efi_size_t size_of_headers;
     uint16_t number_of_sections;
     uint32_t section_alignment;
-    PE_section_t first_section; 
+    uint32_t number_of_RVA_and_sizes;
+    PE_section_t first_section;
+    PE_data_directory_t reloc_directory;
     PE_data_directory_t res_directory;
     PE_image_headers_t pe;                  ///< pointer to header struct
     uint8_t* base;                          ///< begin of image file
@@ -177,6 +179,7 @@ efi_status_t read_headers(
 
 #   define set_context(ctx, pe, bits) { \
     ctx->image_address = __join(pe->optional_header,bits).image_base; \
+    ctx->number_of_RVA_and_sizes = __join(pe->optional_header,bits).number_of_RVA_and_sizes; \
     ctx->size_of_headers = __join(pe->optional_header,bits).size_of_headers; \
     ctx->size_of_image = __join(pe->optional_header,bits).size_of_image; \
     ctx->section_alignment = __join(pe->optional_header,bits).section_alignment; \
@@ -234,7 +237,8 @@ efi_status_t read_headers(
     ctx->first_section = (PE_section_t) (image_base + section_header_offset);
 
 #   define set_context(ctx, pe, bits) { \
-    ctx->res_directory = &__join(pe->optional_header,bits).data_directory[PE_HEADER_DIRECTORY_ENTRY_RESOURCE]; }
+    ctx->res_directory = &__join(pe->optional_header,bits).data_directory[PE_HEADER_DIRECTORY_ENTRY_RESOURCE]; \
+    ctx->reloc_directory = &__join(pe->optional_header,bits).data_directory[PE_HEADER_DIRECTORY_ENTRY_BASERELOC]; }
 
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         set_context(ctx, pe, 32);
@@ -247,17 +251,33 @@ efi_status_t read_headers(
 }
 
 /**
- * @brief inspect sections
+ * @brief relocate sections
  * 
- * @param ctx 
+ * @param[in] buffer
+ *  pointer to the base of the virtual memory segment 
+ * @param[in] ctx
+ * @param[out] reloc_section
+ *  section header for the relocation section
  */
 static inline
-efi_status_t inspect_sections(
-    pe_loader_ctx_t ctx
+efi_status_t relocate_sections(
+    const uint8_t* buffer,
+    pe_loader_ctx_t ctx,
+    PE_section_t* reloc_section
 ) {
     assert(ctx);
     assert(ctx->first_section);
-    assert(ctx->base && ctx->pe);
+    assert(ctx->reloc_directory);
+    assert(buffer && ctx->pe);
+    assert(reloc_section);
+
+    bool found_entry_point = false;
+
+    uint8_t* relocation_base = image_address(buffer, ctx->size_of_image,
+        ctx->reloc_directory->virtual_address);
+    uint8_t* relocation_end  = image_address(buffer, ctx->size_of_image,
+        ctx->reloc_directory->virtual_address
+        + ctx->reloc_directory->size + 1);
 
     PE_section_t sec = ctx->first_section;
     for (uint16_t i = ctx->number_of_sections; i--; sec++) {
@@ -265,10 +285,12 @@ efi_status_t inspect_sections(
         if ((sec->characteristics & PE_SECTION_MEM_DISCARDABLE) && sec->virtual_size == 0)
             continue;
         
-        uint8_t* base = image_address(ctx->base, ctx->size_of_image,
+        uint8_t* base = image_address(buffer, ctx->size_of_image,
             sec->virtual_address);
-        uint8_t* end =  image_address(ctx->base, ctx->size_of_image,
+        uint8_t* end =  image_address(buffer, ctx->size_of_image,
             sec->virtual_address + sec->virtual_size - 1);
+
+        // _MESSAGE("%3hu %.10s %p-%p [%X,%X]", i, sec->name, base, end, sec->virtual_address, sec->virtual_size);
         
         if (end < base) {
             _MESSAGE("Section %.*s has negative size", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
@@ -277,8 +299,17 @@ efi_status_t inspect_sections(
 
         /* process .reloc even when marked discardable */
         if (strncmp(sec->name, ".reloc", PE_SECTION_SIZE_OF_SHORT_NAME) == 0) {
-            _MESSAGE("Image has a relocation section");
-            return EFI_UNSUPPORTED;
+            if (*reloc_section) {
+                _MESSAGE("Image has multiple .reloc sections");
+                return EFI_UNSUPPORTED;
+            }
+            /* if this section appears valid than use it as relocation section */
+            if (sec->size_of_raw_data && sec->virtual_size
+                && base && end
+                && relocation_base == base && relocation_end == end
+            ) {
+                *reloc_section = sec;
+            }
         }
 
         /* skip sections marked discardable */
@@ -287,16 +318,118 @@ efi_status_t inspect_sections(
 
         /* loadable sections with vma or vma size 0 are invalid */ 
         if (!base || !end) {
-            _ERROR("Section %.*s has illegal VMA", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
+            _ERROR("Section %*s has illegal VMA", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
             return EFI_LOAD_ERROR;
         }
 
-        if (!(sec->characteristics & PE_SECTION_CNT_UNINITIALIZED_DATA) &&
-		    (sec->virtual_address < ctx->size_of_headers || sec->pointer_to_raw_data < ctx->size_of_headers)
-        ) {
-			_MESSAGE("Section %.*s is inside image headers", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
-            return EFI_LOAD_ERROR;
-		}
+        if (sec->characteristics & PE_SECTION_CNT_UNINITIALIZED_DATA) {
+            memset(base, 0, sec->virtual_size);
+		} else {
+            if (sec->pointer_to_raw_data < ctx->size_of_headers) {
+				_MESSAGE("Section %.*s is inside image headers", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
+                return EFI_LOAD_ERROR;
+			}
+            
+            if (base != ctx->base + sec->pointer_to_raw_data) {
+                if (sec->size_of_raw_data > 0)
+                    memcpy(base, ctx->base + sec->pointer_to_raw_data, sec->size_of_raw_data);
+            }
+            if (sec->size_of_raw_data < sec->virtual_size)
+                memset(base + sec->size_of_raw_data, 0, sec->virtual_size - sec->size_of_raw_data);
+        }
+
+        if (sec->virtual_address < ctx->entry_point && ctx->entry_point < sec->virtual_address + sec->virtual_size) {
+            found_entry_point = true;
+            _MESSAGE("Found entrypoint in section %.*s", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
+        }
+    }
+
+    if (!found_entry_point)
+        _MESSAGE("No section contains entrypoint %X", ctx->entry_point);
+
+    return EFI_SUCCESS;
+}
+
+/**
+ * @brief 
+ * 
+ * @param[in] buffer
+ *  pointer to the base of the virtual memory segment 
+ * @param[in] ctx 
+ * @param[in] reloc_section
+ *  pointer to .reloc section header
+ */
+efi_status_t relocation_fixup(
+    const uint8_t* buffer,
+    pe_loader_ctx_t ctx,
+    PE_section_t reloc_section
+) {
+    assert(buffer);
+    assert(ctx);
+    assert(ctx->base);
+    assert(ctx->reloc_directory);
+    assert(reloc_section);
+
+    uint8_t* reloc_base = image_address(ctx->base, ctx->size_of_image,
+        reloc_section->pointer_to_raw_data);
+    uint8_t* reloc_end  = image_address(ctx->base, ctx->size_of_image,
+        reloc_section->pointer_to_raw_data + reloc_section->virtual_size);
+    
+    if (!reloc_base && !reloc_end)
+        return EFI_SUCCESS;
+    if (!reloc_base || !reloc_end)
+        return EFI_UNSUPPORTED;
+
+    efi_size_t adjust = (efi_physical_address_t) buffer - ctx->image_address;
+    /* image loaded at prefered base address */
+    if (!adjust) {
+        _MESSAGE("No relocation fixup necessary");
+        return EFI_SUCCESS;
+    }
+
+    uint32_t n = 0;
+    for (
+        PE_base_relocation_t reloc = (PE_base_relocation_t) reloc_base;
+        (uint8_t*) reloc < reloc_end;
+        reloc = (PE_base_relocation_t) ((uint8_t*) reloc) + reloc->size_of_block + sizeof(struct PE_base_relocation)
+    ) {
+        if (reloc->size_of_block == 0) {
+            _MESSAGE("Reloc %u block size 0 is invalid", n);
+            return EFI_UNSUPPORTED;
+        } else if (reloc->size_of_block > ctx->reloc_directory->size) {
+            _MESSAGE("Reloc %u block size %hu greater than reloc dir size %hu", n, reloc->size_of_block, ctx->reloc_directory->size);
+            return EFI_UNSUPPORTED;
+        }
+
+        uint8_t* fixup_base = image_address(ctx->base, ctx->size_of_image, reloc->virtual_address);
+        if (!fixup_base) {
+            _MESSAGE("Reloc %u invalid virtual address", n);
+            return EFI_UNSUPPORTED;
+        }
+
+        for (uint32_t i = 0; i < reloc->size_of_block / sizeof(uint16_t); i++) {
+            uint8_t* fixup = fixup_base + (reloc->fixup[i] & PE_RELOC_BASED_FIXUP_MASK);
+            switch(reloc->fixup[i] & PE_RELOC_BASED_TYPE_MASK) {
+                case PE_RELOC_BASED_ABSOLUTE:
+                    break;
+                case PE_RELOC_BASED_HIGH: /* add upper WORD of the 32bit address */
+                    *((uint16_t*) fixup) = (*((uint16_t*) fixup) + (uint16_t) ((uint32_t) adjust >> 16));
+                    break;
+                case PE_RELOC_BASED_LOW: /* add lower WORD of 32bit address */
+                    *((uint16_t*) fixup) = (*((uint16_t*) fixup) + (uint16_t) adjust);
+                    break;
+                case PE_RELOC_BASED_HIGHLOW: /* add WORD */
+                    *((uint32_t*) fixup) = (*((uint32_t*) fixup) + (uint32_t) adjust);
+                    break;
+                case PE_RELOC_BASED_DIR64:
+                    *((uint64_t*) fixup) = (*((uint64_t*) fixup) + (uint64_t) adjust);
+                    break;
+                default:
+                    _MESSAGE("Reloc %u Unknown relocation %u", n, reloc->fixup[i] >> 12);
+                    return EFI_UNSUPPORTED;
+            }
+        }
+        n++;
     }
 
     return EFI_SUCCESS;
@@ -315,6 +448,15 @@ efi_status_t __unload_pe_file(
     err = BS->open_protocol(image, &efi_loaded_image_device_path_guid, (void*) &dp,
         EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_EXCLUSIVE);
     if (EFI_ERROR(err)) {
+        return EFI_UNSUPPORTED;
+    }
+
+    /* free memory pages and device path node */
+    if(dp->hdr.type == HARDWARE_DEVICE_PATH && dp->hdr.subtype == HW_MEMMAP_DP) {
+        BS->free_pages(dp->start, (dp->start - dp->end) / PAGE_SIZE);
+    } else {
+        /* No MEMMAP devicepath, not our handle? */
+        BS->close_protocol(image, &efi_loaded_image_device_path_guid, EFI_IMAGE, NULL);
         return EFI_UNSUPPORTED;
     }
 
@@ -344,7 +486,7 @@ efi_status_t __unload_pe_file(
 }
 
 efi_status_t PE_handle_image(
-    simple_buffer_t data,
+    simple_buffer_t image_data,
     efi_handle_t* image,
     efi_loaded_image_t* loaded_image,
     efi_entry_point_t* entry_point
@@ -354,36 +496,59 @@ efi_status_t PE_handle_image(
     assert(EFI_IMAGE);
     assert(EFI_LOADED_IMAGE);
 
-    if (!data || !image || !loaded_image || !entry_point)
+    if (!image_data || !image || !loaded_image || !entry_point)
         return EFI_INVALID_PARAMETER;
-    if (!data->buffer || buffer_len(data) == 0 )
+    if (!image_data->buffer || buffer_len(image_data) == 0 )
         return EFI_INVALID_PARAMETER;
 
-    struct pe_loader_ctx ctx;
+    struct pe_loader_ctx ctx = { 0 };
 
     /* get required header fields and directory pointers */
-    err = read_headers(data, &ctx);
+    err = read_headers(image_data, &ctx);
     if (EFI_ERROR(err)) {
         _ERROR("Failed to read PE header: %r", err);
         return err;
     }
 
-    assert(ctx.section_alignment);
+    /* allocate alligned pages for PE image and data */
+    _cleanup_buffer struct aligned_buffer buf = { 0 };
+    aligned_buffer_t data = &buf;
+    allocate_aligned_buffer(ctx.size_of_image, EFI_LOADER_DATA, &buf);
+    memcpy(data->buffer, ctx.base, ctx.size_of_headers);
     
-    *entry_point = (efi_entry_point_t) image_address(ctx.base, ctx.size_of_image, ctx.entry_point);
+    *entry_point = (efi_entry_point_t) image_address(data->buffer, ctx.size_of_image, ctx.entry_point);
     if (!*entry_point) {
         _ERROR("Entry point is invalid");
         return EFI_LOAD_ERROR;
     }
 
-    err = inspect_sections(&ctx);
-    if (EFI_ERROR(err)) {
-        return EFI_LOAD_ERROR;   
+    /* data directory is to short to contain basereloc directory */
+    if (ctx.number_of_RVA_and_sizes <= PE_HEADER_DIRECTORY_ENTRY_BASERELOC) {
+        _MESSAGE("Image has no relocation directory entry");
+    } else {
+        PE_section_t reloc_section = NULL;
+        err = relocate_sections(data->buffer, &ctx, &reloc_section);
+        if (EFI_ERROR(err)) {
+            return EFI_LOAD_ERROR;   
+        }
+
+        /* relocate section found need to apply fixups */
+        if (reloc_section) {
+            if (ctx.reloc_directory->size) {
+                err = relocation_fixup(data->buffer, &ctx, reloc_section);
+                if (EFI_ERROR(err)) {
+                    _MESSAGE("Relocation failed: %r", err);
+                    return err;
+                }
+            }
+        } else {
+            _MESSAGE("Image has no valid .reloc section");
+        }
     }
 
     /* create device path for memory mapped file */
     efi_device_path_t dp = create_memory_mapped_device_path(
-        (efi_physical_address_t) buffer_pos(data), buffer_len(data), EFI_LOADER_DATA);
+        (efi_physical_address_t) data->buffer, data->allocated, EFI_LOADER_DATA);
 
     if (!dp) {
         return EFI_OUT_OF_RESOURCES;
@@ -403,10 +568,10 @@ efi_status_t PE_handle_image(
         .device_handle = EFI_LOADED_IMAGE->device_handle,
         .file_path = dp,
         .reserved = NULL,
-        .image_base = ctx.base,
+        .image_base = data->buffer,
         .image_size = ctx.size_of_image,
-        .image_code_type = EFI_LOADER_CODE,
-        .image_data_type = EFI_LOADER_CODE, /* everything is located in the same memory allocation*/
+        .image_code_type = EFI_LOADER_DATA,
+        .image_data_type = EFI_LOADER_DATA, /* everything is located in the same memory allocation*/
         .unload = __unload_pe_file
     };
     **loaded_image = _lp;
@@ -424,6 +589,9 @@ efi_status_t PE_handle_image(
         free(*loaded_image);
         return err;
     }
+
+    /* don't free allocated buffer on exit */
+    data->free = NULL;
     
     return EFI_SUCCESS;
 }

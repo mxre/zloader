@@ -30,7 +30,7 @@ efi_status_t image_start(efi_handle_t* image, simple_buffer_t options) {
         efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
             EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
             u"%lu", monotonic_time_usec());
-    _MESSAGE("StartImage: %D", loaded_image->file_path);
+    _MESSAGE("StartImage: %D after %b.3f ms", loaded_image->file_path, (monotonic_time_usec() - BOOT_TIME_USECS) / 1000.0);
     err = BS->start_image(image, NULL, NULL);
     if (EFI_ERROR(err)) {
         _ERROR("Unable to start image: %r", err);
@@ -52,13 +52,12 @@ efi_status_t execute_image_from_memory(
     assert(BS);
     assert(EFI_IMAGE);
 
-    efi_device_path_t dp = create_memory_mapped_device_path(buffer_pos(buffer), buffer_len(buffer), _EFI_POOL_ALLOCATION);
+    efi_device_path_t dp = create_memory_mapped_device_path((efi_physical_address_t) buffer_pos(buffer), buffer_len(buffer), _EFI_POOL_ALLOCATION);
     
     efi_handle_t image;
     err = BS->load_image(false, EFI_IMAGE, (efi_device_path_t) dp, buffer_pos(buffer), buffer_len(buffer), &image);
 
     if (image) {
-        _MESSAGE("StartImage: %D", dp);
         err = image_start(image, options);
         if (EFI_ERROR(err)) {
             _ERROR("ImageStart Error: %r", err);
@@ -83,9 +82,10 @@ efi_status_t execute_image_from_memory(
             efi_var_set_printf(&loader_guid, u"LoaderTimeExecUSec",
                 EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
                 u"%lu", monotonic_time_usec());
-        _MESSAGE("StartImage: %D", loaded_image->file_path);
+        _MESSAGE("StartImage: %D after %b.3f ms", loaded_image->file_path, (monotonic_time_usec() - BOOT_TIME_USECS) / 1000.0);
         err = entry_point(image, ST);
-
+        if (EFI_ERROR(err))
+            _ERROR("Image returned with: %r", err);
         loaded_image->unload(image);
     }
     
@@ -178,14 +178,14 @@ efi_status_t efi_main(
     }
 
     _cleanup_buffer struct simple_buffer options = { 0 };
-    
     /* get cmdline from arguments or from internal cmdline section */
     if (EFI_LOADED_IMAGE->load_options_size > 0 && !secure_boot) {
         options.buffer = EFI_LOADED_IMAGE->load_options;
         options.allocated = options.length = EFI_LOADED_IMAGE->load_options_size;
         _MESSAGE("use supplied cmdline: %.*ls", options.length / (sizeof(char16_t)), (char16_t*) options.buffer);
     } else if (sections[SECTION_CMDLINE].load_address) {
-        options = allocate_simple_buffer((sections[SECTION_CMDLINE].size + 1)* sizeof(char16_t));
+        if (!allocate_simple_buffer((sections[SECTION_CMDLINE].size + 1)* sizeof(char16_t), &options))
+            exit(EFI_OUT_OF_RESOURCES);
         efi_size_t length = mbstowcs((char16_t*) options.buffer, (const char*) EFI_LOADED_IMAGE->image_base + sections[SECTION_CMDLINE].load_address, sections[SECTION_CMDLINE].size);
         options.length = length * sizeof(char16_t);
         _MESSAGE("embedded cmdline found: %.*ls", length, (char16_t*) options.buffer);
@@ -215,7 +215,7 @@ efi_status_t efi_main(
         0
     };
     
-    _cleanup_buffer struct aligned_buffer decompressed_kernel = { 0 };
+    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0 };
 
     uint64_t time = monotonic_time_usec();
     err = decompress(&linux_section, &decompressed_kernel);
@@ -231,9 +231,9 @@ efi_status_t efi_main(
         "decompress took %b.3f ms %b.3f MiB/s",
         time / 1000.0,
         (decompressed_kernel.length * 1024 * 1024) / (time / 1000000.0));
-    _MESSAGE("kernel hash %blX", buffer_xxh64((simple_buffer_t) &decompressed_kernel));
+    _MESSAGE("kernel hash %blX", buffer_xxh64(&decompressed_kernel));
 
-    err = execute_image_from_memory((simple_buffer_t) &decompressed_kernel, &options);
+    err = execute_image_from_memory(&decompressed_kernel, &options);
     if (EFI_ERROR(err)) {
         _ERROR("ImageLoad Error: %r", err);
         goto end;

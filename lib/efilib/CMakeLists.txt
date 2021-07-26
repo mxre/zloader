@@ -37,8 +37,9 @@ endif()
 add_library(efilib OBJECT ${SOURCES})
 target_compile_options(efilib 
   PUBLIC -target ${COMPILE_TARGET}
-  PRIVATE -std=gnu2x )
+  PRIVATE -std=gnu2x
+)
 
-set_source_files_properties(efifprt.c
-  PROPERTIES
-  COMPILE_OPTIONS "-fno-lto")
+set_source_files_properties(efifprt.c PROPERTIES
+  COMPILE_OPTIONS "-fno-lto"
+)

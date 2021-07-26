@@ -3,11 +3,11 @@
 KERNEL="$1"
 INITRD="$2"
 KEYS="$3"
-CMDLINE="${4:-"/proc/cmdline"}"
-OSRELEASE="${5:-"/etc/os-release"}"
+CMDLINE=${4:-"/proc/cmdline"}
+OSRELEASE=${5:-"/etc/os-release"}
 ARCH=${6:-x64}
 
-KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz" }
+KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz"}
 
 if [ -z "${INITRD}" ]; then
 	objcopy --dump-section=.initrd=initrd-arch-zen.img /efi/EFI/Linux/arch-zen.efi
@@ -22,7 +22,7 @@ fi
 llvm-objcopy \
 	${OSRELEASE:+--add-section .osrel="${OSRELEASE}"} \
 	${CMDLINE:+--add-section .cmdline="${CMDLINE}"} \
-	--add-section .linux=${KERNEL} \
+	--add-section .linux="${KERNEL}" \
 	${INITRD:+--add-section .initrd="${INITRD}"} \
 	"../zloader${ARCH}.efi.stub" "/tmp/zloader.efi"
 

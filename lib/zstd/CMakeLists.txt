@@ -12,4 +12,5 @@ set(SOURCES
 add_library(zstd OBJECT ${SOURCES})
 target_compile_options(zstd
   PUBLIC -target ${COMPILE_TARGET}
-  PRIVATE -std=gnu2x )
+  PRIVATE -std=gnu2x
+)

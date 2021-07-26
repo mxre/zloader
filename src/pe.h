@@ -19,6 +19,7 @@
 #include <efi/pe.h>
 #include "util.h"
 
+#ifndef USE_EFI_LOAD_IMAGE
 /**
  * @brief relocate PE file from buffer and prepare for execution
  * 
@@ -38,6 +39,7 @@ efi_status_t PE_handle_image(
     efi_loaded_image_t* loaded_image,
     efi_entry_point_t* entry_point
 );
+#endif
 
 /**
  * @brief check if the data in buffer is a PE image

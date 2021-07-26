@@ -80,8 +80,8 @@ size_t buffer_len(simple_buffer_t buffer) {
 
 static inline
 void _free_buffer(void* buffer) {
-    if ((simple_buffer_t) buffer)
-        ((simple_buffer_t) buffer)->free(buffer);
+    simple_buffer_t b = (simple_buffer_t) buffer;
+    if (b && b->buffer && b->free) b->free(b);
 }
 
 #define _cleanup_buffer _cleanup(_free_buffer)
@@ -100,16 +100,16 @@ void free_aligned_buffer(aligned_buffer_t buffer) {
 }
 
 static __always_inline inline
-struct simple_buffer allocate_simple_buffer(size_t length) {
-    struct simple_buffer buf = {
-        .buffer = malloc(length),
-        .length = 0,
-        .pos = 0,
-        .allocated = length,
-        .free = free_simple_buffer
-    };
+bool allocate_simple_buffer(size_t length, simple_buffer_t buffer) {
+    buffer->buffer = malloc(length);
+    if (!buffer->buffer)
+        return false;
+    
+    buffer->length = buffer->pos = 0;
+    buffer->allocated = length;
+    buffer->free = free_simple_buffer;
 
-    return buf;
+    return true;
 }
 
 static __always_inline inline

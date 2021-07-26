@@ -3,7 +3,6 @@ set(SOURCES
     util.c
     systemd.c
     pe.c
-    pe_loader.c
     initrd.c
     decompress.c
 )
@@ -14,9 +13,12 @@ endif(LOADER_PRINT_MESSAGES)
 
 if(LOADER_USE_EFI_LOAD_IMAGE)
   add_compile_definitions(USE_EFI_LOAD_IMAGE)
+else()
+  list(APPEND SOURCES pe_loader.c)
 endif(LOADER_USE_EFI_LOAD_IMAGE)
 
 add_library(src OBJECT ${SOURCES})
 target_compile_options(src
   PUBLIC -target ${COMPILE_TARGET}
-  PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end" )
+  PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
+)
