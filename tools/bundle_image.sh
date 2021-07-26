@@ -1,20 +1,20 @@
 #!/bin/sh
 
-KERNEL=$1
-INITRD=$2
-KEYS=$3
-CMDLINE=${4:-"/proc/cmdline"}
-OSRELEASE=${5:-"/etc/os-release"}
+KERNEL="$1"
+INITRD="$2"
+KEYS="$3"
+CMDLINE="${4:-"/proc/cmdline"}"
+OSRELEASE="${5:-"/etc/os-release"}"
 ARCH=${6:-x64}
 
 KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz" }
 
-if [ "${INITRD}" == "current" ]; then
+if [ -z "${INITRD}" ]; then
 	objcopy --dump-section=.initrd=initrd-arch-zen.img /efi/EFI/Linux/arch-zen.efi
 	INITRD="initrd-arch-zen.img"
 fi;
 
-if [ "${CMDLINE}" == "/proc/cmdline" ]; then
+if [ "${CMDLINE}" = "/proc/cmdline" ]; then
 	cat "${CMDLINE}" > "/tmp/cmdline"
 	CMDLINE="/tmp/cmdline"
 fi
