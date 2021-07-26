@@ -5,6 +5,7 @@ INITRD=$2
 KEYS=$3
 CMDLINE=${4:-"/proc/cmdline"}
 OSRELEASE=${5:-"/etc/os-release"}
+ARCH=${6:-x64}
 
 KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz" }
 
@@ -23,15 +24,15 @@ llvm-objcopy \
 	${CMDLINE:+--add-section .cmdline="${CMDLINE}"} \
 	--add-section .linux=${KERNEL} \
 	${INITRD:+--add-section .initrd="${INITRD}"} \
-	../zloaderx64.efi.stub "/tmp/zloader.efi"
+	"../zloader${ARCH}.efi.stub" "/tmp/zloader.efi"
 
 rm -f "/tmp/cmdline"
 
 ./vma_fixer "/tmp/zloader.efi"
 
 if [ "${KEYS}" ]; then
-	sbsign --key "${KEYS}/db.key" --cert "${KEYS}/db.crt" --out ../bootx64.efi "/tmp/zloader.efi"
+	sbsign --key "${KEYS}/db.key" --cert "${KEYS}/db.crt" --out "../boot${ARCH}.efi" "/tmp/zloader.efi"
 	rm -f "/tmp/zloader.efi"
 else
-	mv "/tmp/zloader.efi" ../bootx64.efi
+	mv "/tmp/zloader.efi" "../boot${ARCH}.efi"
 fi

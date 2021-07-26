@@ -5,5 +5,5 @@
 
 efi_status_t decompress(
     simple_buffer_t in,
-    simple_buffer_t out
+    aligned_buffer_t out
 );

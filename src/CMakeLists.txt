@@ -6,9 +6,15 @@ set(SOURCES
     pe_loader.c
     initrd.c
     decompress.c
-  
-    main.rc
 )
+
+if(LOADER_PRINT_MESSAGES)
+  add_compile_definitions(PRINT_MESSAGES)
+endif(LOADER_PRINT_MESSAGES)
+
+if(LOADER_USE_EFI_LOAD_IMAGE)
+  add_compile_definitions(USE_EFI_LOAD_IMAGE)
+endif(LOADER_USE_EFI_LOAD_IMAGE)
 
 add_library(src OBJECT ${SOURCES})
 target_compile_options(src

@@ -182,7 +182,7 @@ efi_status_t efi_main(
     /* get cmdline from arguments or from internal cmdline section */
     if (EFI_LOADED_IMAGE->load_options_size > 0 && !secure_boot) {
         options.buffer = EFI_LOADED_IMAGE->load_options;
-        options.length = EFI_LOADED_IMAGE->load_options_size;
+        options.allocated = options.length = EFI_LOADED_IMAGE->load_options_size;
         _MESSAGE("use supplied cmdline: %.*ls", options.length / (sizeof(char16_t)), (char16_t*) options.buffer);
     } else if (sections[SECTION_CMDLINE].load_address) {
         options = allocate_simple_buffer((sections[SECTION_CMDLINE].size + 1)* sizeof(char16_t));
@@ -194,10 +194,12 @@ efi_status_t efi_main(
     if (sections[SECTION_INITRD].load_address) {
         struct simple_buffer initrd = {
             .buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_INITRD].load_address,
-            .length = sections[SECTION_INITRD].size, 0
+            .length = sections[SECTION_INITRD].size,
+            .allocated = sections[SECTION_INITRD].size,
+            0
         };
 
-        _MESSAGE("embedded initrd found: size: %zu", initrd.length);
+        _MESSAGE("embedded initrd found: size: %zu", buffer_len(&initrd));
         _MESSAGE("initrd hash %blX", buffer_xxh64(&initrd));
 
         err = initrd_register(&initrd);
@@ -209,10 +211,11 @@ efi_status_t efi_main(
     struct simple_buffer linux_section = {
         .buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_LINUX].load_address,
         .length = sections[SECTION_LINUX].size,
-        .pos = 0,
-        .allocated = 0
-    };    
-    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0 };
+        .allocated = sections[SECTION_LINUX].size,
+        0
+    };
+    
+    _cleanup_buffer struct aligned_buffer decompressed_kernel = { 0 };
 
     uint64_t time = monotonic_time_usec();
     err = decompress(&linux_section, &decompressed_kernel);
@@ -228,9 +231,9 @@ efi_status_t efi_main(
         "decompress took %b.3f ms %b.3f MiB/s",
         time / 1000.0,
         (decompressed_kernel.length * 1024 * 1024) / (time / 1000000.0));
-    _MESSAGE("kernel hash %blX", buffer_xxh64(&decompressed_kernel));
+    _MESSAGE("kernel hash %blX", buffer_xxh64((simple_buffer_t) &decompressed_kernel));
 
-    err = execute_image_from_memory(&decompressed_kernel, &options);
+    err = execute_image_from_memory((simple_buffer_t) &decompressed_kernel, &options);
     if (EFI_ERROR(err)) {
         _ERROR("ImageLoad Error: %r", err);
         goto end;

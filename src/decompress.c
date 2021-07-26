@@ -41,7 +41,7 @@ static_assert(
 static inline
 efi_status_t decompress_lz4(
     simple_buffer_t in,
-    simple_buffer_t out
+    aligned_buffer_t out
 ) {
     efi_status_t err;
 
@@ -70,14 +70,10 @@ efi_status_t decompress_lz4(
             goto end;
         }
 
-        out->allocated = frame_info.contentSize;
-    }
-
-    out->length = out->pos = 0;
-    out->buffer = malloc(out->allocated);
-    if (!out->buffer) {
-        err = EFI_OUT_OF_RESOURCES;
-        goto end;
+        if (!allocate_aligned_buffer(frame_info.contentSize, EFI_LOADER_DATA, out)) {
+            err = EFI_OUT_OF_RESOURCES;
+            goto end;
+        }
     }
 
     //ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
@@ -89,7 +85,7 @@ efi_status_t decompress_lz4(
     while (in->pos < in->length) {
         size_t out_end = out->allocated - out->pos;
         size_t in_end = buffer_len(in);
-        result = LZ4F_decompress(ctx, buffer_pos(out), &out_end, buffer_pos(in), &in_end, NULL);
+        result = LZ4F_decompress(ctx, buffer_pos((simple_buffer_t) out), &out_end, buffer_pos(in), &in_end, NULL);
         if (LZ4F_isError(result)) {
             _ERROR("LZ4 (%zu): %s", -result, LZ4F_getErrorName(result));
             err = EFI_UNSUPPORTED;
@@ -111,7 +107,7 @@ end:
     LZ4F_freeDecompressionContext(ctx);
 
     if (EFI_ERROR(err)) {
-        free(out->buffer);
+        free_aligned_buffer(out);
         out->allocated = 0;
         out->buffer = NULL;
     } else {
@@ -126,7 +122,7 @@ end:
 static inline
 efi_status_t decompress_zstd(
     simple_buffer_t in,
-    simple_buffer_t out
+    aligned_buffer_t out
 ) {
     efi_status_t err;
 
@@ -137,10 +133,9 @@ efi_status_t decompress_zstd(
         return EFI_UNSUPPORTED;
     }
 
-    out->length = out->pos = 0;
-    out->buffer = malloc(out->allocated);
-    if (!out->buffer)
+    if (!allocate_aligned_buffer(out->allocated, EFI_LOADER_DATA, out)) {
         return EFI_OUT_OF_RESOURCES;
+    }
 
     ZSTD_DStream* zstream = ZSTD_createDStream();
     if (!zstream) {
@@ -177,7 +172,7 @@ end:
     ZSTD_freeDStream(zstream);
 
     if (EFI_ERROR(err)) {
-        free(out->buffer);
+        free_aligned_buffer(out);
         out->allocated = 0;
         out->buffer = NULL;
     } else {
@@ -190,7 +185,7 @@ end:
 
 efi_status_t decompress(
     simple_buffer_t in,
-    simple_buffer_t out
+    aligned_buffer_t out
 ) {
     if (!in || !out)
         return EFI_INVALID_PARAMETER;
@@ -211,12 +206,19 @@ efi_status_t decompress(
         return decompress_lz4(in, out);
     } else
 #endif
-    /* directly load an uncompressed executable */
+    /* directly pass on an uncompressed executable */
     if (PE_header(in) > 0) {
         _MESSAGE("detected EFI executable");
-        out->buffer = in->buffer;
-        out->length = in->length;
-        out->pos = in->pos;
+        /* if the section is already aligned, then just pass it on */
+        if ((efi_physical_address_t) in->buffer % PAGE_SIZE == 0) {
+            out->buffer = in->buffer;
+            out->allocated = out->length = in->length;
+            out->pos = in->pos;
+        } else {
+            if (!allocate_aligned_buffer(buffer_len(in), EFI_LOADER_DATA, out))
+                return EFI_OUT_OF_RESOURCES;
+            memcpy(out->buffer, buffer_pos(in), buffer_len(in));
+        }
         return EFI_SUCCESS;
     } else {
         _MESSAGE("unsupported file format: %X", (*(uint32_t*) buffer_pos(in)));
