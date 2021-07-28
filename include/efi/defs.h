@@ -44,3 +44,20 @@ struct efi_table_header {
 #else
 #  define efi_api
 #endif
+
+/* well known UEFI Machine Abbreviations */
+#if __x86_64__
+#  define EFI_ARCH "x64"
+#elif __i386__ || __i686__
+#  define EFI_ARCH "ia32"
+#elif __aarch64__
+#  define EFI_ARCH "aa64"
+#elif __arm__
+#  define EFI_ARCH "arm"
+#elif __riscv && __riscv_xlen == 64
+#  define EFI_ARCH "riscv64"
+#elif __riscv && __riscv_xlen == 32
+#  define EFI_ARCH "riscv32"
+#else
+#  error "Unsupported UEFI System"
+#endif

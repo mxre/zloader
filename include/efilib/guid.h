@@ -18,6 +18,8 @@ extern struct efi_guid efi_loaded_image_device_path_guid;
 
 extern struct efi_guid efi_global_variable_guid;
 
+extern struct efi_guid efi_device_path_utilities_guid;
+
 static inline
 bool guidcmp(efi_guid_t a, efi_guid_t b) {
 #if __SIZE_WIDTH__ == 64

@@ -160,12 +160,12 @@ efi_file_info_t lib_get_file_info(efi_file_handle_t handle) {
         if (err == EFI_BUFFER_TOO_SMALL) {
             free(info);
             continue;
-        } else if (EFI_ERROR(err)) {
-            free(info);
-            return NULL;
         }
-        break;
-    } while(true);
+    } while(err == EFI_BUFFER_TOO_SMALL);
+    if (EFI_ERROR(err)) {
+        free(info);
+        return NULL;
+    }
 
     return info;
 }

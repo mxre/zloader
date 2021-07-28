@@ -24,7 +24,8 @@ void close_file_p(efi_file_handle_t* handle) {
 #define _cleanup_file_handle _cleanup(close_file_p)
 
 static inline
-void free_p(void** p) {
+void free_p(void* pointer) {
+    void** p = (void**) pointer;
     if (*p) {
         free(*p);
     }
@@ -127,11 +128,6 @@ bool allocate_aligned_buffer(size_t length, efi_memory_t type, aligned_buffer_t 
 
     return true;
 }
-
-efi_status_t write_simple_buffer_to_file(
-    char16_t* filename,
-    const simple_buffer_t buffer
-);
 
 /**
  * @brief Create XXH64 hash for buffer contents
