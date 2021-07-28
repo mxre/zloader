@@ -190,4 +190,12 @@ char16_t* time_to_string (
     efi_time_t restrict time
 );
 
+char16_t* device_path_to_string(
+    char16_t* buffer,
+    efi_device_path_t dp
+);
+
+#define _PRINT_STRING_LEN            200
+#define _PRINT_ITEM_BUFFER_LEN       200
+
 #endif /* EFILIB_PRINTF */

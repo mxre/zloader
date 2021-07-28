@@ -22,3 +22,33 @@ void exit(efi_status_t status) {
 #endif
     BS->exit(EFI_IMAGE, status, 0, NULL);
 }
+
+/**
+ * @brief Get a list of handles implementing the given GUID
+ * 
+ * @param[in] guid
+ * @param[out] length
+ *  number of handles returned
+ * @param[out] handles 
+ * @return efi_status_t 
+ */
+efi_status_t lib_find_handles(
+    efi_guid_t guid,
+    efi_size_t* length,
+    efi_handle_t** handles
+);
+
+/**
+ * @brief Get the protocol interface for the first handle found
+ * 
+ * @param[in] guid 
+ * @param[out] handle
+ *  Can be NULL
+ * @param[out] interface 
+ * @return efi_status_t 
+ */
+efi_status_t lib_get_protocol_interface(
+    efi_guid_t guid,
+    efi_handle_t* handle,
+    void** interface
+);

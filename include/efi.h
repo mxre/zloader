@@ -3,6 +3,8 @@
 #include "efi/defs.h"
 #include "efi/error.h"
 #include "efi/device_path.h"
+#include "efi/device_path_utilities_protocol.h"
+#include "efi/device_path_to_text_protocol.h"
 #include "efi/load_file_protocol.h"
 #include "efi/simple_text_output_protocol.h"
 #include "efi/simple_file_system_protocol.h"

@@ -136,32 +136,13 @@ efi_status_t efi_main(efi_handle_t image, efi_system_table_t systable) {
     }
 
     efi_status_t err;
-    efi_size_t sz = sizeof(efi_handle_t);
-    efi_handle_t* handle = NULL;
-    do {
-        handle = malloc(sz);
-        if (!handle) {
-            _MESSAGE("Could not allocate buffer");
-            return EFI_OUT_OF_RESOURCES;
-        }
-        err = BS->locate_handle(EFI_SEARCH_BY_PROTOCOL, &efi_device_path_utilities_guid, NULL, &sz, handle);
-        if (err == EFI_BUFFER_TOO_SMALL) {
-            free(handle);
-            continue;
-        }
-    } while (err == EFI_BUFFER_TOO_SMALL);
+    err = lib_get_protocol_interface(&efi_device_path_utilities_guid, NULL, (void**) &device_path_utils);
     if (EFI_ERROR(err)) {
-        _MESSAGE("LocateHandle %g: %r", &efi_device_path_utilities_guid, err);
+        _MESSAGE("Could not open DevicePathUtilities: %r");
         return err;
     }
-    err = BS->open_protocol(handle[0], &efi_device_path_utilities_guid, (void**) &device_path_utils, EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
-    if (EFI_ERROR(err)) {
-        _MESSAGE("OpenProtocol %g: %r", &efi_device_path_utilities_guid, err);
-        return err;
-    }
-    free(handle);
     
-    sz = sizeof(uint16_t);
+    efi_size_t sz = sizeof(uint16_t);
     uint16_t next;
     err = efi_var_get(&efi_global_variable_guid, u"BootNext", NULL, &sz, &next);
     if (err == EFI_SUCCESS) {
@@ -202,12 +183,12 @@ efi_status_t efi_main(efi_handle_t image, efi_system_table_t systable) {
     fl->hdr.length = sizeof(struct efi_filepath) + sizeof(char16_t) * (len + 1);
     wcsncpy(fl->pathname, filename, len); fl->pathname[len] = u'\0';
     efi_device_path_t d = device_path_utils->append_node(dp, (efi_device_path_t) fl);
+    free(fl);
 
     _MESSAGE("Execute %D", d);
     err = run_image_from_file(d, NULL, 0);
     if (EFI_ERROR(err))
         _ERROR("%D failed: %r", d, err);
-    free(fl);
     free(d);
     return err;
 }
