@@ -78,50 +78,44 @@ struct efi_runtime_services_table  {
 
     /* Time services */
 
-    efi_api
-    efi_status_t (*get_time) (
+    efi_status_t (efi_api *get_time) (
         efi_time_t time,
         efi_time_capabilities_t capabilities
     );
 
-    efi_api
-    efi_status_t (*set_time) (
+    efi_status_t (efi_api *set_time) (
         const efi_time_t time
     );
 
-    efi_api
-    efi_status_t (*get_wakeup_time) (
+    efi_status_t (efi_api *get_wakeup_time) (
         bool* enabled,
         bool* pending,
         efi_time_t time
     );
 
-    efi_api
-    efi_status_t (*set_wakeup_time) (
+    efi_status_t (efi_api *set_wakeup_time) (
         bool enabled,
         const efi_time_t time
     );
 
     /* Virtual memory services */
 
-    efi_api
-    efi_status_t (*set_virtual_address_map) (
+    
+    efi_status_t (efi_api *set_virtual_address_map) (
         efi_size_t memory_map_size,
         efi_size_t descriptor_size,
         uint32_t descriptor_version,
         efi_memory_descriptor_t virtual_map
     );
 
-    efi_api
-    efi_status_t (*convert_pointer) (
+    efi_status_t (efi_api *convert_pointer) (
         efi_size_t debug_disposition,
         void** address
     );
 
     /* Variable services */
-
-    efi_api
-    efi_status_t (*get_variable) (
+    
+    efi_status_t (efi_api *get_variable) (
         const char16_t* variable_name,
         const efi_guid_t vendor_guid,
         uint32_t* attributes,
@@ -129,15 +123,13 @@ struct efi_runtime_services_table  {
         void* data
     );
 
-    efi_api
-    efi_status_t (*get_next_variable_name) (
+    efi_status_t (efi_api *get_next_variable_name) (
         efi_size_t* variable_name_size,
         char16_t* variable_name,
         efi_guid_t vendor_guid
     );
 
-    efi_api
-    efi_status_t (*set_variable) (
+    efi_status_t (efi_api *set_variable) (
         const char16_t* variable_name,
         const efi_guid_t vendor_guid,
         uint32_t attributes,
@@ -147,13 +139,12 @@ struct efi_runtime_services_table  {
 
     /* Misc */
 
-    efi_api
-    efi_status_t (*get_next_high_monotonic_count) (
+    efi_status_t (efi_api *get_next_high_monotonic_count) (
         uint32_t* high_count
     );
     
-    efi_api noreturn
-    efi_status_t (*reset_system) (
+    noreturn
+    efi_status_t (efi_api *reset_system) (
         efi_reset_type_t reset_type,
         efi_status_t reset_status,
         efi_size_t data_size,
@@ -161,16 +152,14 @@ struct efi_runtime_services_table  {
     );
 
     /* Capsule Service UEFI 2.0+ */
-
-    efi_api
-    efi_status_t (*update_capsule) (
+    
+    efi_status_t (efi_api *update_capsule) (
         const efi_capsule_header_t* capsule_header_array,
         efi_size_t capsule_count,
         efi_physical_address_t scatter_gather_list
     );
 
-    efi_api
-    efi_status_t (*query_capsule_capabilities) (
+    efi_status_t (efi_api *query_capsule_capabilities) (
         const efi_capsule_header_t* capsule_header_array,
         efi_size_t capsule_count,
         uint64_t* maximum_capsule_size,
@@ -179,8 +168,7 @@ struct efi_runtime_services_table  {
 
     /* UEFI 2.0+ */
 
-    efi_api
-    efi_status_t (*query_variable_info) (
+    efi_status_t (efi_api *query_variable_info) (
         uint32_t attributes,
         uint64_t* maximum_variable_storage_size,
         uint64_t* remaining_variable_storageSize,

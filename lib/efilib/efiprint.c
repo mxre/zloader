@@ -36,8 +36,8 @@ struct _pitem {
     bool is_short; /* is 16 bit */
 };
 
-typedef efi_api efi_size_t (*output_string)(void* context, const char16_t* str);
-typedef efi_api efi_size_t (*output_setattr)(void* context, efi_size_t attr);
+typedef efi_size_t (efi_api *output_string)(void* context, const char16_t* str);
+typedef efi_size_t (efi_api *output_setattr)(void* context, efi_size_t attr);
 
 struct print_state {
     /* Input */

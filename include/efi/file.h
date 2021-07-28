@@ -26,8 +26,7 @@ typedef struct efi_file_protocol* efi_file_handle_t;
 struct efi_file_protocol {
     uint64_t revision;
 
-    efi_api
-    efi_status_t (*open) (
+    efi_status_t (efi_api *open) (
         efi_file_handle_t self,
         efi_file_handle_t *new_file,
         const char16_t* filename,
@@ -35,19 +34,16 @@ struct efi_file_protocol {
         uint64_t attributes 
     );
 
-    efi_api
-    efi_status_t (*close) (
+    efi_status_t (efi_api *close) (
         efi_file_handle_t self
     );
 
-    efi_api
     /* delete is a reserved name */
-    efi_size_t (*unlink) (
+    efi_size_t (efi_api *unlink) (
         efi_file_handle_t self
     );
 
-    efi_api
-    efi_size_t (*read) (
+    efi_size_t (efi_api*read) (
         efi_file_handle_t self,
         efi_size_t* size,
         void* buffer
@@ -82,43 +78,37 @@ struct efi_file_protocol {
      * 
      *  Direct writes to opened directories are not supported.
      */
-    efi_api
-    efi_status_t (*write) (
+    efi_status_t (efi_api *write) (
         efi_file_handle_t self,
         efi_size_t* size,
         const void* buffer
     );
 
-    efi_api
-    efi_status_t (*get_position) (
+    efi_status_t (efi_api *get_position) (
+        efi_file_handle_t self,
+        efi_size_t* pos
+    );
+    
+    efi_status_t (efi_api *set_position) (
         efi_file_handle_t self,
         efi_size_t* pos
     );
 
-    efi_api
-    efi_status_t (*set_position) (
-        efi_file_handle_t self,
-        efi_size_t* pos
-    );
-
-    efi_api
-    efi_status_t (*get_info) (
+    efi_status_t (efi_api *get_info) (
         efi_file_handle_t self,
         efi_guid_t type,
         efi_size_t* size,
         void* buffer
     );
 
-    efi_api
-    efi_status_t (*set_info) (
+    efi_status_t (efi_api *set_info) (
         efi_file_handle_t self,
         efi_guid_t type,
         efi_size_t size,
         void* buffer
     );
 
-    efi_api
-    efi_status_t (*flush) (
+    efi_status_t (efi_api *flush) (
         efi_file_handle_t self
     );
 

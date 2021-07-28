@@ -14,7 +14,7 @@
 
 typedef void* efi_event_t;
 
-typedef efi_api void (*efi_event_notify) (efi_event_t event, void *context);
+typedef void (efi_api *efi_event_notify) (efi_event_t event, void *context);
 
 enum efi_event_timer_delay {
         EFI_TIMER_CANCEL,

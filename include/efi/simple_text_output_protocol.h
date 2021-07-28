@@ -82,7 +82,7 @@ struct efi_simple_text_output_protocol {
 		efi_size_t column,
 		efi_size_t row);
 
-	efi_status_t (efi_api *enable_cursor)(
+    efi_status_t (efi_api *enable_cursor)(
 		efi_simple_text_output_t self,
 		bool visible);
 

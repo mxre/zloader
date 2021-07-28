@@ -32,8 +32,7 @@ struct efi_loaded_image_protocol {
     efi_memory_t image_code_type;
     efi_memory_t image_data_type;
 
-    efi_api
-    efi_status_t (*unload) (
+    efi_status_t (efi_api *unload) (
         efi_handle_t image_handle
     );
 };

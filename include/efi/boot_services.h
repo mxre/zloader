@@ -42,32 +42,27 @@ typedef struct efi_protocol_information_entry* efi_protocol_information_entry_t;
 struct __packed efi_boot_services_table {
         struct efi_table_header hdr;
 
-        efi_api
-        efi_tpl_t (*raise_tpl) (
+        efi_tpl_t (efi_api *raise_tpl) (
 			efi_tpl_t new_tpl
         );
 
-        efi_api
-        void (*restore_tpl) (
+        void (efi_api *restore_tpl) (
 			efi_tpl_t old_tpl
         );
 
-        efi_api
-        efi_status_t (*allocate_pages) (
+        efi_status_t (efi_api *allocate_pages) (
 			efi_allocate_t type,
 			efi_memory_t memory_type,
 			efi_size_t pages,
 			efi_physical_address_t* memory
         );
 
-        efi_api
-        efi_status_t (*free_pages) (
+        efi_status_t (efi_api *free_pages) (
 			efi_physical_address_t memory,
 			efi_size_t pages
         );
 
-        efi_api
-        efi_status_t (*get_memory_map) (
+        efi_status_t (efi_api *get_memory_map) (
 			efi_size_t* memory_map_size,
 			efi_memory_descriptor_t memory_map,
 			efi_size_t* map_key,
@@ -75,20 +70,17 @@ struct __packed efi_boot_services_table {
 			uint32_t* descriptor_version
         );
 
-        efi_api
-        efi_status_t (*allocate_pool) (
+        efi_status_t (efi_api *allocate_pool) (
 			efi_memory_t pool_type,
 			efi_size_t size,
 			void **buffer
         );
 
-        efi_api
-        efi_status_t (*free_pool) (
+        efi_status_t (efi_api *free_pool) (
 			void *buffer
         );
 
-        efi_api
-        efi_status_t (*create_event) (
+        efi_status_t (efi_api *create_event) (
 			uint32_t type,
 			efi_tpl_t notify_tpl,
 			efi_event_notify notify_function,
@@ -96,54 +88,50 @@ struct __packed efi_boot_services_table {
 			efi_event_t event
         );
 
-        efi_api
-        efi_status_t (*set_timer) (
+        efi_status_t (efi_api *set_timer) (
 			efi_event_t event,
 			efi_event_timer_delay_t type,
 			uint64_t trigger_time
         );
 
-        efi_api
-        efi_status_t (*wait_for_event) (
+        efi_status_t (efi_api *wait_for_event) (
 			efi_size_t number_of_events,
 			efi_event_t* event,
 			efi_size_t *index
         );
 
-        efi_status_t (*signal_event) (
+        efi_status_t (efi_api *signal_event) (
 			efi_event_t event
         );
 
-        efi_status_t (*close_event) (
+        efi_status_t (efi_api *close_event) (
 			efi_event_t event
         );
 
-        efi_status_t (*check_event) (
+        efi_status_t (efi_api *check_event) (
 			efi_event_t event
         );
 
-        efi_status_t (*install_protocol_interface) (
+        efi_status_t (efi_api *install_protocol_interface) (
 			efi_handle_t* handle,
 			efi_guid_t protocol,
             efi_interface_t interface_type,
 			void *interface
         );
 
-        efi_api
-        efi_status_t (*reinstall_protocol_interface) (
+        efi_status_t (efi_api *reinstall_protocol_interface) (
             efi_handle_t handle,
             efi_guid_t protocol,
 			void* old_interface,
 			void* new_interface
         );
 
-        efi_api
-        efi_status_t (*uninstall_protocol_interface) (
+        efi_status_t (efi_api *uninstall_protocol_interface) (
 			efi_handle_t handle,
 			efi_guid_t protocol,
 			void* interface
         );
-        efi_status_t (*handle_protocol) (
+        efi_status_t (efi_api *handle_protocol) (
 			efi_handle_t handle,
 			efi_guid_t protocol,
 			void** interface
@@ -151,12 +139,12 @@ struct __packed efi_boot_services_table {
 
         void *reserved;
 
-        efi_status_t (*register_protocol_notify) (
+        efi_status_t (efi_api *register_protocol_notify) (
 			efi_guid_t protocol,
 			efi_event_t event,
 			void** registration
         );
-        efi_status_t (*locate_handle) (
+        efi_status_t (efi_api *locate_handle) (
 			efi_locate_search_t search_type,
 			efi_guid_t protocol,
 			void *search_key,
@@ -164,21 +152,18 @@ struct __packed efi_boot_services_table {
 			efi_handle_t* buffer
         );
 
-        efi_api
-        efi_status_t (*locate_device_path) (
+        efi_status_t (efi_api *locate_device_path) (
 			efi_guid_t protocol,
 			efi_device_path_t* device_path,
 			efi_handle_t* device
         );
 
-        efi_api
-        efi_status_t (*install_configuration_table) (
+        efi_status_t (efi_api *install_configuration_table) (
 			efi_guid_t guid,
 			void *table
         );
 
-        efi_api
-        efi_status_t (*load_image) (
+        efi_status_t (efi_api *load_image) (
 			bool boot_policy,
 			efi_handle_t parent_image_handle,
 			efi_device_path_t device_path,
@@ -187,44 +172,38 @@ struct __packed efi_boot_services_table {
 			efi_handle_t* image_handle
         );
 
-        efi_api
-        efi_status_t (*start_image) (
+        efi_status_t (efi_api *start_image) (
 			efi_handle_t image_handle,
 			efi_size_t* exit_data_size,
 			char16_t** exit_data
         );
 
-        efi_api noreturn
-        efi_status_t (*exit) (
+        noreturn
+        efi_status_t (efi_api *exit) (
 			efi_handle_t image_handle,
 			efi_status_t exit_status,
 			efi_size_t exit_data_size,
 			char16_t* exit_data
         );
 
-        efi_api
-        efi_status_t (*unload_image) (
+        efi_status_t (efi_api *unload_image) (
 			efi_handle_t image_handle
         );
 
-        efi_api
-        efi_status_t (*exit_boot_services) (
+        efi_status_t (efi_api *exit_boot_services) (
 			efi_handle_t image_handle,
 			efi_size_t map_key
         );
-
-        efi_api
-        efi_status_t (*get_next_monotonic_count) (
+        
+        efi_status_t (efi_api *get_next_monotonic_count) (
 			uint64_t* count
         );
-
-        efi_api
-        efi_status_t (*stall) (
+        
+        efi_status_t (efi_api *stall) (
 			efi_size_t microseconds
         );
 
-        efi_api
-        efi_status_t (*set_watchdog_timer) (
+        efi_status_t (efi_api *set_watchdog_timer) (
 			efi_size_t timeout,
 			uint64_t watchdog_code,
 			efi_size_t data_size,
@@ -233,23 +212,20 @@ struct __packed efi_boot_services_table {
 
         /* 1.1+ */
 
-        efi_api
-        efi_status_t (*connect_controller) (
+        efi_status_t (efi_api *connect_controller) (
 			efi_handle_t controller_handle,
 			efi_handle_t* driver_image_handle,
 			efi_device_path_t* remaining_device_path,
 			bool recursive
         );
-
-        efi_api
-        efi_status_t (*disconnect_controller) (
+        
+        efi_status_t (efi_api *disconnect_controller) (
 			efi_handle_t controller_handle,
 			efi_handle_t driver_image_handle,
 			efi_handle_t child_handle
         );
 
-        efi_api
-        efi_status_t (*open_protocol) (
+        efi_status_t (efi_api *open_protocol) (
 			efi_handle_t handle,
 			efi_guid_t protocol,
 			void** interface,
@@ -258,31 +234,27 @@ struct __packed efi_boot_services_table {
 			uint32_t attributes
         );
 
-        efi_api
-        efi_status_t (*close_protocol) (
+        efi_status_t (efi_api *close_protocol) (
             efi_handle_t handle,
             efi_guid_t protocol,
             efi_handle_t agent_handle,
             efi_handle_t controller_handle
         );
-
-        efi_api
-        efi_status_t (*open_protocol_information) (
+        
+        efi_status_t (efi_api *open_protocol_information) (
             efi_handle_t handle,
             efi_guid_t protocol,
             efi_protocol_information_entry_t* entry_buffer,
             efi_size_t *entry_count
         );
 
-        efi_api
-        efi_status_t (*protocols_per_handle) (
+        efi_status_t (efi_api *protocols_per_handle) (
             efi_handle_t handle,
             efi_guid_t** protocol_buffer,
             efi_size_t* protocol_buffer_count
         );
 
-        efi_api
-        efi_status_t (*locate_handle_buffer) (
+        efi_status_t (efi_api *locate_handle_buffer) (
 			efi_locate_search_t search_type,
 			efi_guid_t protocol,
 			void* search_key,
@@ -290,50 +262,43 @@ struct __packed efi_boot_services_table {
 			efi_handle_t ** buffer
         );
 
-        efi_api
-        efi_status_t (*locate_protocol) (
+        efi_status_t (efi_api *locate_protocol) (
             efi_guid_t protocol,
             void *registration,
             void **interface
         );
 
-        efi_api
-        efi_status_t (*install_multiple_protocol_interfaces) (
+        efi_status_t (efi_api *install_multiple_protocol_interfaces) (
 			efi_handle_t *handle,
 			...
         );
-
-        efi_api
-        efi_status_t (*uninstall_multiple_protocol_interfaces) (
+        
+        efi_status_t (efi_api *uninstall_multiple_protocol_interfaces) (
 			efi_handle_t handle,
 			...
         );
 
-        efi_api
-        efi_status_t (*calculate_crc32) (
+        efi_status_t (efi_api *calculate_crc32) (
 			void *data,
 			efi_size_t data_size,
 			uint32_t* crc32
         );
-
-        efi_api
-        void (*copy_mem) (
+        
+        void (efi_api *copy_mem) (
 			void* destination,
 			const void* source,
 			efi_size_t length
         );
 
-        efi_api
-        void (*set_mem) (
+        void (efi_api *set_mem) (
 			void* buffer,
 			efi_size_t size,
 			uint8_t value
         );
 
         /* UEFI 2.0+ */
-
-        efi_api
-        efi_status_t (*create_event_ex) (
+        
+        efi_status_t (efi_api *create_event_ex) (
             uint32_t type,
             efi_tpl_t notify_tpl,
             efi_event_notify notify_function,

@@ -88,10 +88,11 @@ efi_status_t fl2_load_file(
 static efi_handle_t initrd_handle = NULL;
 
 #if 0 /* use this too hook into the kernel procedure used for finding the initrd handle */
-typedef efi_api efi_status_t (*locate_device_path_t)(efi_guid_t,efi_device_path_t*, efi_handle_t*);
+typedef efi_status_t (efi_api *locate_device_path_t)(efi_guid_t,efi_device_path_t*, efi_handle_t*);
 static locate_device_path_t __locate_device_path;
 
-efi_api efi_status_t locate_device_path(efi_guid_t guid, efi_device_path_t* dp, efi_handle_t* h) {
+efi_api
+efi_status_t locate_device_path(efi_guid_t guid, efi_device_path_t* dp, efi_handle_t* h) {
     efi_status_t err =  __locate_device_path(guid, dp, h);
     _MESSAGE("{%g} %r", guid, err);
     return err;
