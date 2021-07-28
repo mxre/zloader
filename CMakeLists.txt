@@ -58,14 +58,18 @@ add_subdirectory(src)
 add_executable(zloader src/main.rc $<TARGET_OBJECTS:src> $<TARGET_OBJECTS:efilib> $<TARGET_OBJECTS:lib> ${OPTIONAL_DEPENDENCIES})
 set_target_properties(zloader PROPERTIES
   SUFFIX "${EFI_ARCH}.efi.stub"
-  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main"
+  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
+)
+add_custom_command(TARGET zloader POST_BUILD
+  COMMAND ${CMAKE_BINARY_DIR}/tools/vma_fixer $<TARGET_FILE:zloader>
+  DEPENDS vma_fixer
 )
 
 if(LOADER_TARGET STREQUAL "aarch64")
   add_executable(fit src/boot.c src/systemd.c $<TARGET_OBJECTS:efilib>)
   set_target_properties(fit PROPERTIES
     SUFFIX "${EFI_ARCH}.efi"
-    LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main"
+    LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
   )
   target_compile_options(fit
     PUBLIC -target ${COMPILE_TARGET}
