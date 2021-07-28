@@ -60,3 +60,19 @@ set_target_properties(zloader PROPERTIES
   SUFFIX "${EFI_ARCH}.efi.stub"
   LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main"
 )
+
+if(LOADER_TARGET STREQUAL "aarch64")
+  add_executable(fit src/boot.c src/systemd.c $<TARGET_OBJECTS:efilib>)
+  set_target_properties(fit PROPERTIES
+    SUFFIX "${EFI_ARCH}.efi"
+    LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main"
+  )
+  target_compile_options(fit
+    PUBLIC -target ${COMPILE_TARGET}
+    PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
+  )
+  add_custom_command(TARGET fit POST_BUILD
+    COMMAND ${CMAKE_BINARY_DIR}/tools/vma_fixer $<TARGET_FILE:fit>
+    DEPENDS vma_fixer
+  )
+endif(LOADER_TARGET STREQUAL "aarch64")
