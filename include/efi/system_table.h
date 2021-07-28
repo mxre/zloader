@@ -2,6 +2,7 @@
 
 #include "defs.h"
 #include "simple_text_output_protocol.h"
+#include "simple_text_input_protocol.h"
 #include "runtime_services.h"
 #include "boot_services.h"
 
@@ -12,11 +13,11 @@ struct efi_system_table {
 	char16_t* firmware_vendor;
 	uint32_t firmware_revision;
 	efi_handle_t console_in_handle;
-	void* in;
+	efi_simple_text_input_t in;
 	efi_handle_t console_out_handle;
-	efi_simple_text_output_protocol_t out;
+	efi_simple_text_output_t out;
 	efi_handle_t standard_error_handle;
-	efi_simple_text_output_protocol_t err;
+	efi_simple_text_output_t err;
 	efi_runtime_services_table_t runtime_services;
 	efi_boot_services_table_t boot_services;
 	efi_size_t number_of_table_entries;

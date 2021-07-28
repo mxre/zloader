@@ -45,56 +45,46 @@ typedef struct efi_simple_text_output_mode* efi_simple_text_output_mode_t;
 
 #define EFI_TEXT_ATTR(f,b)  ((f) | ((b) << 4))
 
-typedef struct efi_simple_text_output_protocol* efi_simple_text_output_protocol_t;
+typedef struct efi_simple_text_output_protocol* efi_simple_text_output_t;
 
 struct efi_simple_text_output_protocol {
-    efi_api
-	efi_status_t (*reset)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *reset)(
+		efi_simple_text_output_t self,
 		bool extended_verification);
 
-    efi_api
-	efi_status_t (*output_string)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *output_string)(
+		efi_simple_text_output_t self,
 		const char16_t* string);
 
-    efi_api
-	efi_status_t (*test_string)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *test_string)(
+		efi_simple_text_output_t self,
 		const char16_t* string);
 
-    efi_api
-	efi_status_t (*query_mode)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *query_mode)(
+		efi_simple_text_output_t self,
 		efi_size_t mode_number,
 		efi_size_t* columns,
 		efi_size_t* rows);
 
-    efi_api
-	efi_status_t (*set_mode)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *set_mode)(
+		efi_simple_text_output_t self,
 		efi_size_t mode_number);
 
-    efi_api
-	efi_status_t (*set_attribute)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *set_attribute)(
+		efi_simple_text_output_t self,
 		efi_size_t attribute);
 
-    efi_api
-	efi_status_t (*clear_screen)(
-		efi_simple_text_output_protocol_t self);
+	efi_status_t (efi_api *clear_screen)(
+		efi_simple_text_output_t self);
 
-    efi_api
-	efi_status_t (*set_cursor_position)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *set_cursor_position)(
+		efi_simple_text_output_t self,
 		efi_size_t column,
 		efi_size_t row);
 
-    efi_api
-	efi_status_t (*enable_cursor)(
-		efi_simple_text_output_protocol_t self,
+	efi_status_t (efi_api *enable_cursor)(
+		efi_simple_text_output_t self,
 		bool visible);
 
-    efi_api
 	efi_simple_text_output_mode_t mode;
 };

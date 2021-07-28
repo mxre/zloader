@@ -85,7 +85,7 @@ efi_status_t print(
 efi_size_t _iprint(
     efi_size_t column,
     efi_size_t row,
-    efi_simple_text_output_protocol_t out,
+    efi_simple_text_output_t out,
     const char16_t* restrict fmt,
     const char8_t* restrict fmta,
     va_list args

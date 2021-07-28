@@ -21,18 +21,15 @@ struct efi_device_path_utilities_protocol {
     
     efi_device_path_t (efi_api *append) (
         const efi_device_path_t,
-        const efi_device_path_t
-    );
+        const efi_device_path_t);
 
     efi_device_path_t (efi_api *append_node) (
         const efi_device_path_t,
-        const efi_device_path_t node
-    );
+        const efi_device_path_t node);
 
     efi_device_path_t (efi_api *append_instance) (
         const efi_device_path_t,
-        const efi_device_path_t instance
-    );
+        const efi_device_path_t instance);
 
     /**
      * @brief Creates a copy of the current device path instance and returns a
@@ -43,18 +40,15 @@ struct efi_device_path_utilities_protocol {
      */
     efi_device_path_t (efi_api *next_instance) (
         efi_device_path_t** instance,
-        efi_size_t* instance_size
-    );
+        efi_size_t* instance_size);
 
     efi_device_path_t (efi_api *create_node) (
         uint8_t type,
         uint8_t subtype,
-        uint16_t length
-    );
+        uint16_t length);
 
     bool (efi_api *is_multi_instance) (
-        const efi_device_path_t
-    );
+        const efi_device_path_t);
 };
 
 typedef struct efi_device_path_utilities_protocol* efi_device_path_utilities_t;
