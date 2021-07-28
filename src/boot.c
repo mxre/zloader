@@ -5,23 +5,6 @@
 #include "util.h"
 #include "systemd.h"
 
-#define LOAD_OPTION_ACTIVE          UINT32_C(0x00000001)
-#define LOAD_OPTION_FORCE_RECONNECT UINT32_C(0x00000002)
-#define LOAD_OPTION_HIDDEN          UINT32_C(0x00000008)
-#define LOAD_OPTION_CATEGORY        UINT32_C(0x00001F00)
-#define LOAD_OPTION_CATEGORY_BOOT   UINT32_C(0x00000000)
-#define LOAD_OPTION_CATEGORY_APP    UINT32_C(0x00000100)
-
-struct __packed efi_load_option {
-    uint32_t attributes;
-    uint16_t file_path_list_length;
-    uint16_t description[];
-//    efi_filepath_t file_path_list[];
-//    uint8_t optional_data[]
-};
-
-typedef struct efi_load_option* efi_load_option_t;
-
 static
 efi_status_t run_image_from_file(
     const efi_device_path_t dp,

@@ -111,7 +111,7 @@ efi_status_t is_loadable(
 ) {
     assert(pe);
 
-    /* I did not test bigendian so better just disallow it */
+    /* UEFI does not allow BigEndian */
     if ((pe->file_header.characteristics & (PE_HEADER_BYTES_REVERSED_LO | PE_HEADER_BYTES_REVERSED_HI))) {
         _MESSAGE("Image unsupported - Image is BigEndian");
         return EFI_UNSUPPORTED;
@@ -133,6 +133,7 @@ efi_status_t is_loadable(
         return EFI_UNSUPPORTED;
     }
 
+    /* we could test for 32 on 64 and the like here... */
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         if (!allow_32bit()) {
             _MESSAGE("32-bit executable not supported");
@@ -177,6 +178,7 @@ efi_status_t read_headers(
 
     uint32_t file_alignment, size_of_optheader;
 
+    /* set contect struct for 32 and 64 bits */
 #   define set_context(ctx, pe, bits) { \
     ctx->image_address = __join(pe->optional_header,bits).image_base; \
     ctx->number_of_RVA_and_sizes = __join(pe->optional_header,bits).number_of_RVA_and_sizes; \
@@ -444,7 +446,8 @@ efi_status_t __unload_pe_file(
 
     efi_status_t err;
     efi_memory_device_path_t dp;
-   
+
+    /* open exclusive so that we are assure no on has a reference */
     err = BS->open_protocol(image, &efi_loaded_image_device_path_guid, (void*) &dp,
         EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_EXCLUSIVE);
     if (EFI_ERROR(err)) {
@@ -452,7 +455,7 @@ efi_status_t __unload_pe_file(
     }
 
     /* free memory pages and device path node */
-    if(dp->hdr.type == HARDWARE_DEVICE_PATH && dp->hdr.subtype == HW_MEMMAP_DP) {
+    if(IsDevicePathNode(&dp->hdr, HARDWARE_DEVICE_PATH, HW_MEMMAP_DP)) {
         BS->free_pages(dp->start, (dp->start - dp->end) / PAGE_SIZE);
     } else {
         /* No MEMMAP devicepath, not our handle? */
@@ -468,15 +471,19 @@ efi_status_t __unload_pe_file(
         return EFI_UNSUPPORTED;
     }
 
+    /* close protocols so that we can uninstall them */
     BS->close_protocol(image, &efi_loaded_image_protocol_guid, EFI_IMAGE, NULL);
     BS->close_protocol(image, &efi_loaded_image_device_path_guid, EFI_IMAGE, NULL);
 
+    /* destroy handle */
     err = BS->uninstall_multiple_protocol_interfaces(
         image,
         &efi_loaded_image_protocol_guid, lp,
         &efi_loaded_image_device_path_guid, dp,
         NULL
     );
+
+    /* free protocol structs */
     if (err == EFI_SUCCESS) {
         free(lp);
         free(dp);

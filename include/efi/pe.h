@@ -56,10 +56,10 @@ typedef struct PE_COFF_header* PE_COFF_header_t;
 #elif __aarch64__
 #define PE_HEADER_MACHINE_NATIVE PE_HEADER_MACHINE_ARM64
 #elif __arm__
-#define PE_HEADER_MACHINE_NATIVE PE_HEADER_MACHINE_ARM
+#define PE_HEADER_MACHINE_NATIVE PE_HEADER_MACHINE_THUMB /* according to UEFI specs */
 #elif __riscv && __riscv_xlen == 64
 #define PE_HEADER_MACHINE_NATIVE PE_HEADER_MACHINE_RISCV64
-#elif __riscv && __riscv_xlen == 64
+#elif __riscv && __riscv_xlen == 32
 #define PE_HEADER_MACHINE_NATIVE PE_HEADER_MACHINE_RISCV32
 #else
 #error "Unkown target CPU consider adding it to pe.h"

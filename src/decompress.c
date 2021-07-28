@@ -53,6 +53,8 @@ efi_status_t decompress_lz4(
     }
 
     {
+        /* retrieve uncompressed size
+         * NOTE: This only works if lz4 was invoked with --content-size */
         LZ4F_frameInfo_t frame_info = { 0 };
         size_t in_pos = in->length;
         err = LZ4F_getFrameInfo(ctx, &frame_info, buffer_pos(in), &in_pos);
@@ -76,11 +78,6 @@ efi_status_t decompress_lz4(
         }
     }
 
-    //ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
-    //clear_screen();
-    //ST->out->set_cursor_position(ST->out, 0, 0);
-    //print(u"decompress:");
-
     size_t result = 0;
     while (in->pos < in->length) {
         size_t out_end = out->allocated - out->pos;
@@ -93,10 +90,7 @@ efi_status_t decompress_lz4(
         }
         in->pos += in_end;
         out->length = out->pos += out_end;
-        //printf_at(12, 0, u"%3.4f%%", (((double) out_pos) / ((double) out_size)) * 100.0);
     }
-
-    //printf_at(12, 0, u" done\n");
     
     if (result)
         _ERROR("EOF before end of stream: %zu", result);
@@ -126,6 +120,7 @@ efi_status_t decompress_zstd(
 ) {
     efi_status_t err;
 
+    /* retrieve uncompressed size */
     out->allocated = ZSTD_getFrameContentSize(buffer_pos(in), buffer_len(in));
     if (out->allocated == ZSTD_CONTENTSIZE_ERROR || out->allocated == ZSTD_CONTENTSIZE_UNKNOWN) {
         _ERROR("ZSTD can't determine content size: %zu", -out->allocated);
@@ -143,11 +138,6 @@ efi_status_t decompress_zstd(
         return EFI_OUT_OF_RESOURCES;
     }
 
-    //ST->out->set_attribute(ST->out, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLUE));
-    //clear_screen();
-    //ST->out->set_cursor_position(ST->out, 0, 0);
-    //print(u"decompress:");
-
     size_t result = 0;
     out->length = out->allocated;
     while (in->pos < in->length) {
@@ -157,11 +147,7 @@ efi_status_t decompress_zstd(
             err = EFI_COMPROMISED_DATA;
             goto end;
         }
-
-        //printf_at(12, 0, u"%3.4f%%", (((double) out.pos) / ((double) out.size)) * 100.0);
     }
-
-    //printf_at(12, 0, u" done\n");
 
     if (result)
         _ERROR("EOF before end of stream: %zu", result);

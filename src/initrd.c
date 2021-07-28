@@ -134,6 +134,7 @@ efi_status_t initrd_register(
 
 efi_status_t initrd_deregister() {
     if (initrd_handle) {
+        /* uninstall all protocol thus destroying the handle */
         efi_status_t err = BS->uninstall_multiple_protocol_interfaces(
             &initrd_handle,
             &efi_device_path_protocol_guid, &efi_initrd_device_path,
