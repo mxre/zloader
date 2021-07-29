@@ -145,9 +145,9 @@ efi_status_t efi_main(
     efi_status_t err = EFI_SUCCESS;
     bool secure_boot = false;
     {
-        efi_size_t data_size = 1; uint8_t data[data_size];
-        if (EFI_SUCCESS == efi_var_get(&efi_global_variable_guid, u"SecureBoot", NULL, &data_size, data))
-            secure_boot = data[0] == 1;
+        uint8_t data; efi_size_t data_size = sizeof(data);
+        if (EFI_SUCCESS == efi_var_get(&efi_global_variable_guid, u"SecureBoot", NULL, &data_size, &data))
+            secure_boot = data == 1;
     }
     if (secure_boot)
         _MESSAGE("Running in %TSECURE%N mode", EFI_GREEN);

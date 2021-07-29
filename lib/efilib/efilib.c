@@ -11,8 +11,11 @@ efi_boot_services_table_t BS = NULL;
 efi_runtime_services_table_t RT = NULL; 
 efi_memory_t _EFI_POOL_ALLOCATION = EFI_BOOT_SERVICES_DATA;
 efi_loaded_image_t EFI_LOADED_IMAGE = NULL;
-efi_device_path_to_text_t _EFI_DEVPATH_TO_TEXT = NULL;
 uint64_t BOOT_TIME_USECS = 0;
+
+#ifdef EFILIB_USE_DEVICE_PATH_TO_TEXT_PROTOCOL
+efi_device_path_to_text_t _EFI_DEVPATH_TO_TEXT = NULL;
+#endif
 
 /**
  * @brief Use assembly instruction to read CPU ticks counter
@@ -153,6 +156,7 @@ void initialize_library(
     if (EFI_ERROR(err))
         EFILIB_ERROR("DevicePathToTextProtocol not found");
 #endif
+    EFILIB_DBG_MESSAGE("Initalization Done");
 }
 
 efi_file_info_t lib_get_file_info(efi_file_handle_t handle) {

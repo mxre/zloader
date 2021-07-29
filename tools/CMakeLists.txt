@@ -6,10 +6,12 @@ file(CREATE_LINK "../include/efi/compiler.h" "${CMAKE_BINARY_DIR}/compiler.h" SY
 
 include_directories(${CMAKE_BINARY_DIR})
 
-add_compile_options(-std=c2x)
-add_executable(vma_fixer vma_fixer.c)
+add_executable(pe_fixup pe_fixup.c)
+target_compile_options(pe_fixup
+  PRIVATE "-std=gnu2x"
+)
 
-add_custom_command(TARGET vma_fixer POST_BUILD
+add_custom_command(TARGET pe_fixup POST_BUILD
   BYPRODUCTS bundle_image.sh
   WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/bundle_image.sh" "bundle_image.sh"

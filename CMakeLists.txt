@@ -53,6 +53,10 @@ if(LOADER_USE_ZSTD)
   add_compile_definitions(USE_ZSTD)
 endif(LOADER_USE_ZSTD)
 
+if(LOADER_PRINT_MESSAGES)
+  add_compile_definitions(PRINT_MESSAGES)
+endif(LOADER_PRINT_MESSAGES)
+
 add_subdirectory(src)
 
 add_executable(zloader src/main.rc $<TARGET_OBJECTS:src> $<TARGET_OBJECTS:efilib> $<TARGET_OBJECTS:lib> ${OPTIONAL_DEPENDENCIES})
@@ -61,12 +65,11 @@ set_target_properties(zloader PROPERTIES
   LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
 )
 add_custom_command(TARGET zloader POST_BUILD
-  COMMAND ${CMAKE_BINARY_DIR}/tools/vma_fixer $<TARGET_FILE:zloader>
-  DEPENDS vma_fixer
+  COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:zloader>
 )
 
 if(LOADER_TARGET STREQUAL "aarch64")
-  add_executable(fit src/boot.c src/systemd.c $<TARGET_OBJECTS:efilib>)
+  add_executable(fit src/fit_stub.c src/systemd.c $<TARGET_OBJECTS:efilib>)
   set_target_properties(fit PROPERTIES
     SUFFIX "${EFI_ARCH}.efi"
     LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
@@ -76,7 +79,19 @@ if(LOADER_TARGET STREQUAL "aarch64")
     PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
   )
   add_custom_command(TARGET fit POST_BUILD
-    COMMAND ${CMAKE_BINARY_DIR}/tools/vma_fixer $<TARGET_FILE:fit>
-    DEPENDS vma_fixer
+    COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:fit>
   )
 endif(LOADER_TARGET STREQUAL "aarch64")
+
+add_executable(lockdown src/lockdown.c $<TARGET_OBJECTS:efilib>)
+set_target_properties(lockdown PROPERTIES
+  SUFFIX "${EFI_ARCH}.efi"
+  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
+)
+target_compile_options(lockdown
+  PUBLIC -target ${COMPILE_TARGET}
+  PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
+)
+add_custom_command(TARGET lockdown POST_BUILD
+  COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:lockdown>
+)

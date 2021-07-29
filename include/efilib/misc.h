@@ -12,8 +12,10 @@ efi_status_t stall(efi_size_t microseconds) {
 
 static inline _Noreturn
 void exit(efi_status_t status) {
+#ifdef EFILIB_SHUTDOWN
     /* don't use macro here, file included in debug.h */
     ST->out->output_string(ST->out, u"System is now shutting down...\r\n");
+#endif
 #ifdef EFILIB_STALL_ON_EXIT
     stall(EFILIB_STALL_ON_EXIT);
 #endif
