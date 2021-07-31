@@ -10,8 +10,8 @@
 1 VERSIONINFO
 FILEVERSION     0, 0, 1, 0
 PRODUCTVERSION  0, 0, 1, 0
-FILEOS          0 /* none since EFI */
-FILETYPE        1 /* executable */
+FILEOS          0
+FILETYPE        1
 
 FILEFLAGSMASK   0x3f
 #ifdef NDEBUG
@@ -25,14 +25,14 @@ FILEFLAGS       1
     BLOCK "000904b0" {
       VALUE "FileVersion",      "0.1"
       VALUE "ProductVersion",   "0.1"
-      VALUE "ProductName",      "zloader"
-      VALUE "FileDescription",  "EFI Stub for Kernels using Compression"
-      VALUE "OriginalFilename", "zloader.efi"
+      VALUE "ProductName",      "lockdown"
+      VALUE "FileDescription",  "SecureBoot Setup"
+      VALUE "OriginalFilename", "lockdown.efi"
     }
   }
 
   BLOCK "VarFileInfo" {
     /* 0009 locale neutral english, 04b0 utf16 */
-    VALUE "Translation", 0x0009, 0x04b0
+    VALUE "Translation",        0x0009, 0x04b0
   }
 }

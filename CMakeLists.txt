@@ -83,7 +83,7 @@ if(LOADER_TARGET STREQUAL "aarch64")
   )
 endif(LOADER_TARGET STREQUAL "aarch64")
 
-add_executable(lockdown src/lockdown.c $<TARGET_OBJECTS:efilib>)
+add_executable(lockdown src/lockdown.c src/lockdown.rc $<TARGET_OBJECTS:efilib>)
 set_target_properties(lockdown PROPERTIES
   SUFFIX "${EFI_ARCH}.efi"
   LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"

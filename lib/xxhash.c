@@ -1,6 +1,9 @@
-/*
- * xxHash - Extremely Fast Hash algorithm
- * Copyright (C) 2012-2016, Yann Collet.
+/**
+ * @file xxhash.c
+ *
+ * @brief xxHash - Extremely Fast Hash algorithm
+ *
+ * @copyright Copyright (C) 2012-2016, Yann Collet.
  *
  * BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
  *
@@ -36,6 +39,9 @@
  * You can contact the author at:
  * - xxHash homepage: https://cyan4973.github.io/xxHash/
  * - xxHash source repository: https://github.com/Cyan4973/xxHash
+ * 
+ * @note
+ *   * [Max Resch] Changed to use __builtin_rotateleft32 and __builtin_rotateleft64
  */
 
 #include <xxhash.h>

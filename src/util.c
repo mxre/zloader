@@ -11,7 +11,7 @@ efi_status_t get_part_uuid_from_device_path(efi_device_path_t path, efi_guid_t g
     assert(guid);
 
     for (efi_device_path_t dp = path; !IsDevicePathEndNode(dp); dp = NextDevicePathNode(dp)) {
-        if (dp->type != MEDIA_DEVICE_PATH && dp->subtype != MEDIA_PARTITION_DP)
+        if (IsDevicePathNode(dp, MEDIA_DEVICE_PATH, MEDIA_PARTITION_DP))
             continue;
         efi_partition_device_path_t part = (efi_partition_device_path_t) dp;
         if (part->signature_type != SIGNATURE_TYPE_GUID)
