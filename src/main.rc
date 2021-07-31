@@ -12,13 +12,8 @@ FILEVERSION     0, 0, 1, 0
 PRODUCTVERSION  0, 0, 1, 0
 FILEOS          0 /* none since EFI */
 FILETYPE        1 /* executable */
-
 FILEFLAGSMASK   0x3f
-#ifdef NDEBUG
-FILEFLAGS       0
-#else
-FILEFLAGS       1
-#endif
+FILEFLAGS       0L
 
 {
   BLOCK "StringFileInfo" {
