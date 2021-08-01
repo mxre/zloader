@@ -10,8 +10,7 @@ ARCH=${6:-x64}
 KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz"}
 
 if [ -z "${INITRD}" ]; then
-	objcopy --dump-section=.initrd=initrd-arch-zen.img /efi/EFI/Linux/arch-zen.efi
-	INITRD="initrd-arch-zen.img"
+	INITRD="/boot/initrd.img"
 fi;
 
 if [ "${CMDLINE}" = "/proc/cmdline" ]; then
@@ -28,7 +27,7 @@ llvm-objcopy \
 
 rm -f "/tmp/cmdline"
 
-./vma_fixer "/tmp/zloader.efi"
+./pe_fixup "/tmp/zloader.efi"
 
 if [ "${KEYS}" ]; then
 	sbsign --key "${KEYS}/db.key" --cert "${KEYS}/db.crt" --out "../boot${ARCH}.efi" "/tmp/zloader.efi"
