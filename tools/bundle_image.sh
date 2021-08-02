@@ -23,15 +23,15 @@ llvm-objcopy \
 	${CMDLINE:+--add-section .cmdline="${CMDLINE}"} \
 	--add-section .linux="${KERNEL}" \
 	${INITRD:+--add-section .initrd="${INITRD}"} \
-	"../zloader${ARCH}.efi.stub" "/tmp/zloader.efi"
+	"zloader${ARCH}.efi.stub" "/tmp/zloader.efi"
 
 rm -f "/tmp/cmdline"
 
-./pe_fixup "/tmp/zloader.efi"
+tools/pe_fixup --file "/tmp/zloader.efi"
 
 if [ "${KEYS}" ]; then
-	sbsign --key "${KEYS}/db.key" --cert "${KEYS}/db.crt" --out "../boot${ARCH}.efi" "/tmp/zloader.efi"
+	sbsign --key "${KEYS}/db.key" --cert "${KEYS}/db.crt" --out "boot${ARCH}.efi" "/tmp/zloader.efi"
 	rm -f "/tmp/zloader.efi"
 else
-	mv "/tmp/zloader.efi" "../boot${ARCH}.efi"
+	mv "/tmp/zloader.efi" "boot${ARCH}.efi"
 fi

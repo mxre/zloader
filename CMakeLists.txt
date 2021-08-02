@@ -18,7 +18,7 @@ add_compile_options(-mno-stack-arg-probe -fno-stack-protector -ffreestanding -mn
 set(COMPILE_TARGET "${LOADER_TARGET}-none-windows")
 set(CMAKE_LINKER lld-link)
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -out:<TARGET>")
-set(CMAKE_EXE_LINKER_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main")
+set(CMAKE_EXE_LINKER_FLAGS "-subsystem:efi_application -entry:efi_main")
 set(CMAKE_EXECUTABLE_SUFFIX ".efi")
 
 include(CheckCCompilerFlag)

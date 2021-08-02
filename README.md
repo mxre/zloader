@@ -123,7 +123,7 @@ llvm-objcopy \
 Since LLVM objopy does not set the Virtual Memory Address (VMA) we need to do
 that ourselves with a small fixup tool.
 ```
-tools/pe_fixup "bootaa64.efi"
+tools/pe_fixup --file "bootaa64.efi"
 ```
 Now bootaa64.efi can either be copied to `<ESP>/efi/boot/bootaa64.efi` to use
 the default boot behaviour or when using systemd-boot it can be copied to

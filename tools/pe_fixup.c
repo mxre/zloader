@@ -65,7 +65,7 @@ void usage() {
 int main(int argc, char* argv[]) {
     struct PE_version16 efi_version = { 1, 10 };
     char* filename = NULL;
-    bool silent = false;
+    bool silent = false, set_version = false;
 
     const struct option long_opts[] = {
         { .name = "silent", .has_arg = no_argument, .flag = NULL, .val = 's' },
@@ -98,6 +98,7 @@ int main(int argc, char* argv[]) {
                     }
                     efi_version.major = major;
                     efi_version.minor = minor;
+                    set_version = true;
                 }
                 break;
             case '?': /* unknown option */
@@ -213,6 +214,8 @@ int main(int argc, char* argv[]) {
     __join(pe->optional_header,bits).operation_system_version
 #define subsystem_version(pe, bits) \
     __join(pe->optional_header,bits).subsystem_version
+#define DLL_characteristics(pe, bits) \
+    __join(pe->optional_header,bits).DLL_characteristics
 
 #define fix_alignment_header(pe, bits) \
     if ( __join(pe->optional_header,bits).file_alignment == 0) { \
@@ -227,8 +230,12 @@ int main(int argc, char* argv[]) {
     uint32_t section_alignment; uint32_t file_alignment;
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         if (is_efi_app(pe, 32)) {
-            subsystem_version(pe, 32) = efi_version;
-            operation_system_version(pe, 32) = efi_version;
+            if (set_version) {
+                subsystem_version(pe, 32) = efi_version;
+                operation_system_version(pe, 32) = efi_version;
+            }
+            /* clear, this does not have any meaning to EFI */
+            DLL_characteristics(pe, 32) = 0;
         }
 
         fix_alignment_header(pe, 32);
@@ -240,8 +247,12 @@ int main(int argc, char* argv[]) {
         }
     } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
         if (is_efi_app(pe, 64)) {
-            subsystem_version(pe, 64) = efi_version;
-            operation_system_version(pe, 64) = efi_version;
+            if (set_version) {
+                subsystem_version(pe, 64) = efi_version;
+                operation_system_version(pe, 64) = efi_version;
+            }
+            /* clear, this does not have any meaning to EFI */
+            DLL_characteristics(pe, 64) = 0;
         }
 
         fix_alignment_header(pe, 64);
