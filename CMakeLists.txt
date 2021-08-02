@@ -65,7 +65,7 @@ set_target_properties(zloader PROPERTIES
   LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
 )
 add_custom_command(TARGET zloader POST_BUILD
-  COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:zloader>
+  COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:zloader> --efiversion 2.0
 )
 
 if(LOADER_TARGET STREQUAL "aarch64")
@@ -79,7 +79,7 @@ if(LOADER_TARGET STREQUAL "aarch64")
     PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
   )
   add_custom_command(TARGET fit POST_BUILD
-    COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:fit>
+    COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:fit> --efiversion 2.0
   )
 endif(LOADER_TARGET STREQUAL "aarch64")
 
@@ -93,5 +93,5 @@ target_compile_options(lockdown
   PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
 )
 add_custom_command(TARGET lockdown POST_BUILD
-  COMMAND $<TARGET_FILE:pe_fixup> $<TARGET_FILE:lockdown>
+  COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:lockdown> --efiversion 2.0
 )

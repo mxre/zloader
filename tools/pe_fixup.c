@@ -9,20 +9,19 @@
 #include <string.h>
 #include "pe.h"
 
+#include <assert.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#define PAGE_SIZE 0x1000 
+/* default pagesize for EFI */
+#define PAGE_SIZE 0x1000
 
-static struct PE_version16 efi_version = {
-    .major = 2,
-    .minor = 0
-};
-
-static struct section_vma {
-    char name[PE_SECTION_SIZE_OF_SHORT_NAME];
+static
+struct section_vma {
+    char name[PE_SECTION_SIZE_OF_SHORT_NAME + 1];
     uint32_t target_vma;
     uint32_t flags;
 } section_vma[] = {
@@ -38,65 +37,77 @@ struct map {
     size_t size;
 };
 
-static inline void close_p(int* fd) {
+static inline
+void close_p(int* fd) {
     if (*fd > 0)
         close(*fd);
 }
 
-static inline void unmap_p(struct map* map) {
+static inline
+void unmap_p(struct map* map) {
     if (map->p)
         munmap(map->p, map->size);
 }
 
 #define ALIGN_VALUE(v, a) ((v) + (((a) - (v)) & ((a) - 1)))
 
-#define __join(a,b) a ## b
+#define __join(a, b) a ## b
 
-#define print_header_info(pe, bits) \
-    printf("target machine: %04hX (%u-bit) subsystem: %hu (%hu.%hu) " \
-        "flags: %04hX,%04hX version: %hu.%hu\n", \
-        pe->file_header.machine, \
-        bits, \
-        __join(pe->optional_header,bits).subsystem, \
-        __join(pe->optional_header,bits).subsystem_version.major, \
-        __join(pe->optional_header,bits).subsystem_version.minor, \
-        pe->file_header.characteristics, \
-        __join(pe->optional_header,bits).DLL_characteristics, \
-        __join(pe->optional_header,bits).image_version.major, \
-        __join(pe->optional_header,bits).image_version.minor )
-
-#define print_alignment_header_info(pe, bits) \
-    printf("base: %016lX vmasize: %08X section alignment: %u file alignment: %u\n", \
-        (uint64_t) __join(pe->optional_header,bits).image_base, \
-        (uint32_t) __join(pe->optional_header,bits).size_of_image, \
-        __join(pe->optional_header,bits).section_alignment, \
-        __join(pe->optional_header,bits).file_alignment )
-
-/* https://github.com/rhboot/shim/blob/main/pe.c suggests that this is a possibility (althoug llvm does this right)*/
-#define fix_alignment_header(pe, bits) \
-    if ( __join(pe->optional_header,bits).file_alignment == 0) { \
-        fprintf(stderr, "file has file alginment header set to 0, overwriting with %u\n", 0x200); \
-         __join(pe->optional_header,bits).file_alignment = 0x200; \
-    } \
-    if ( __join(pe->optional_header,bits).section_alignment == 0) { \
-        fprintf(stderr, "file has section alginment header set to 0, overwriting with %u\n", PAGE_SIZE); \
-        __join(pe->optional_header,bits).section_alignment = PAGE_SIZE; \
-    }
-
-#define is_efi_app(pe, bits) \
-    __join(pe->optional_header,bits).subsystem == PE_HEADER_SUBSYSTEM_EFI_APPLICATION
-#define operation_system_version(pe, bits) \
-    __join(pe->optional_header,bits).operation_system_version
-#define subsystem_version(pe, bits) \
-    __join(pe->optional_header,bits).subsystem_version
+static
+void usage() {
+    printf("pe_fixup --file <filename> [--efiversion XX.YY]\n"
+        "\n"
+        "    <filename> is an existing EFI executable\n"
+        "    XX.YY a valid EFI version (like 2.31 or 2.70)\n"
+        "    which is the minimum required EFI version for the executable\n");
+}
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "need file argument\n");
-        return 1;
+    struct PE_version16 efi_version = { 1, 10 };
+    char* filename = NULL;
+
+    const struct option long_opts[] = {
+        { .name = "file", .has_arg = required_argument, .flag = NULL, .val = 'f' },
+        { .name = "efiversion", .has_arg = required_argument, .flag = NULL, .val = 'v' },
+        { 0 }
+    };
+    int c, opt_index = 0;
+
+    while(-1 != (c = getopt_long(argc, argv, "f:v:", long_opts, &opt_index))) {
+        switch(c) {
+            case 'f':
+                filename = optarg;
+                break;
+            case 'v':
+                {
+                    uint16_t major, minor;
+                    if (2 != sscanf(optarg, "%hu.%hu", &major, &minor)) {
+                        fprintf(stderr, "Could not parse version\n");
+                        usage();
+                        return 1;
+                    }
+                    if (minor > 99) {
+                        fprintf(stderr, "Illegal EFI version\n");
+                        usage();
+                        return 1;
+                    }
+                    efi_version.major = major;
+                    efi_version.minor = minor;
+                }
+                break;
+            case '?': /* unknown option */
+                usage();
+                return 1;
+            default:
+                assert(true);
+        }
     }
 
-    const char* filename = argv[1];
+    if (!filename) {
+        fprintf(stderr, "Filename argument is required\n");
+        usage();
+        return 1;
+    }
 
     [[ gnu::cleanup(close_p) ]]
     int fd = openat(AT_FDCWD, filename, O_RDWR);
@@ -170,10 +181,43 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /*== PE header fixup ==*/
+
     /* clang and llvm do not expose any of these */
-    pe->file_header.characteristics |= PE_HEADER_LINE_NUMS_STRIPPED
+    pe->file_header.characteristics |=
+        PE_HEADER_LINE_NUMS_STRIPPED
         | PE_HEADER_LOCAL_SYMS_STRIPPED
         | PE_HEADER_DEBUG_STRIPPED;
+
+#define print_header_info(pe, bits) \
+    printf("target machine: %04hX (%u-bit) subsystem: %hu (%hu.%hu) " \
+        "flags: %04hX,%04hX version: %hu.%hu\n", \
+        pe->file_header.machine, \
+        bits, \
+        __join(pe->optional_header,bits).subsystem, \
+        __join(pe->optional_header,bits).subsystem_version.major, \
+        __join(pe->optional_header,bits).subsystem_version.minor, \
+        pe->file_header.characteristics, \
+        __join(pe->optional_header,bits).DLL_characteristics, \
+        __join(pe->optional_header,bits).image_version.major, \
+        __join(pe->optional_header,bits).image_version.minor )
+
+#define is_efi_app(pe, bits) \
+    __join(pe->optional_header,bits).subsystem == PE_HEADER_SUBSYSTEM_EFI_APPLICATION
+#define operation_system_version(pe, bits) \
+    __join(pe->optional_header,bits).operation_system_version
+#define subsystem_version(pe, bits) \
+    __join(pe->optional_header,bits).subsystem_version
+
+#define fix_alignment_header(pe, bits) \
+    if ( __join(pe->optional_header,bits).file_alignment == 0) { \
+        fprintf(stderr, "file has file alginment header set to 0, overwriting with %u\n", 0x200); \
+         __join(pe->optional_header,bits).file_alignment = 0x200; \
+    } \
+    if ( __join(pe->optional_header,bits).section_alignment == 0) { \
+        fprintf(stderr, "file has section alginment header set to 0, overwriting with %u\n", PAGE_SIZE); \
+        __join(pe->optional_header,bits).section_alignment = PAGE_SIZE; \
+    }
 
     uint32_t section_alignment; uint32_t file_alignment;
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
@@ -181,7 +225,7 @@ int main(int argc, char* argv[]) {
             subsystem_version(pe, 32) = efi_version;
             operation_system_version(pe, 32) = efi_version;
         }
- 
+
         fix_alignment_header(pe, 32);
         section_alignment = pe->optional_header32.section_alignment;
         file_alignment = pe->optional_header32.file_alignment;
@@ -202,10 +246,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /*== PE section VMA and flags ==*/
+
     PE_section_t section = (PE_section_t)(
         (uint8_t*) pe + sizeof(struct PE_COFF_header)
         + pe->file_header.size_of_optional_header);
-    
+
     /* find the end of the vma */
     size_t largest_vma = 0;
     for (uint16_t i = pe->file_header.number_of_sections; i--; section++) {
@@ -235,7 +281,7 @@ int main(int argc, char* argv[]) {
 
                     /* fix gaps in section table */
                     section->size_of_raw_data = ALIGN_VALUE(section->pointer_to_raw_data + section->size_of_raw_data, file_alignment) - section->pointer_to_raw_data;
-                }    
+                }
             }
         }
 
@@ -249,6 +295,13 @@ int main(int argc, char* argv[]) {
             section->characteristics
         );
     }
+
+#define print_alignment_header_info(pe, bits) \
+    printf("base: %016lX vmasize: %08X section alignment: %u file alignment: %u\n", \
+        (uint64_t) __join(pe->optional_header,bits).image_base, \
+        (uint32_t) __join(pe->optional_header,bits).size_of_image, \
+        __join(pe->optional_header,bits).section_alignment, \
+        __join(pe->optional_header,bits).file_alignment )
 
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         pe->optional_header32.size_of_image = largest_vma;
