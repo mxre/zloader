@@ -65,16 +65,21 @@ void usage() {
 int main(int argc, char* argv[]) {
     struct PE_version16 efi_version = { 1, 10 };
     char* filename = NULL;
+    bool silent = false;
 
     const struct option long_opts[] = {
+        { .name = "silent", .has_arg = no_argument, .flag = NULL, .val = 's' },
         { .name = "file", .has_arg = required_argument, .flag = NULL, .val = 'f' },
         { .name = "efiversion", .has_arg = required_argument, .flag = NULL, .val = 'v' },
         { 0 }
     };
     int c, opt_index = 0;
 
-    while(-1 != (c = getopt_long(argc, argv, "f:v:", long_opts, &opt_index))) {
+    while(-1 != (c = getopt_long(argc, argv, "sf:v:", long_opts, &opt_index))) {
         switch(c) {
+            case 's':
+                silent = true;
+                break;
             case 'f':
                 filename = optarg;
                 break;
@@ -230,7 +235,9 @@ int main(int argc, char* argv[]) {
         section_alignment = pe->optional_header32.section_alignment;
         file_alignment = pe->optional_header32.file_alignment;
         /* print image information */
-        print_header_info(pe, 32);
+        if (!silent) {
+            print_header_info(pe, 32);
+        }
     } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
         if (is_efi_app(pe, 64)) {
             subsystem_version(pe, 64) = efi_version;
@@ -240,7 +247,9 @@ int main(int argc, char* argv[]) {
         fix_alignment_header(pe, 64);
         section_alignment = pe->optional_header64.section_alignment;
         file_alignment = pe->optional_header64.file_alignment;
-        print_header_info(pe, 64);
+        if (!silent) {
+            print_header_info(pe, 64);
+        }
     } else {
         fprintf(stderr, "missing OPTHDR signature\n");
         return 1;
@@ -287,13 +296,15 @@ int main(int argc, char* argv[]) {
 
         largest_vma = ALIGN_VALUE(section->virtual_address + section->virtual_size, section_alignment);
 
-        printf("%10.*s (%08x %10u) (%08x %12u) (%04x %4hu) %08x\n",
-            PE_SECTION_SIZE_OF_SHORT_NAME, section->name,
-            section->virtual_address, section->virtual_size,
-            section->pointer_to_raw_data, section->size_of_raw_data,
-            section->pointer_to_relocations, section->number_of_relocations,
-            section->characteristics
-        );
+        if (!silent) {
+            printf("%10.*s (%08x %10u) (%08x %12u) (%04x %4hu) %08x\n",
+                PE_SECTION_SIZE_OF_SHORT_NAME, section->name,
+                section->virtual_address, section->virtual_size,
+                section->pointer_to_raw_data, section->size_of_raw_data,
+                section->pointer_to_relocations, section->number_of_relocations,
+                section->characteristics
+            );
+        }
     }
 
 #define print_alignment_header_info(pe, bits) \
@@ -305,10 +316,14 @@ int main(int argc, char* argv[]) {
 
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         pe->optional_header32.size_of_image = largest_vma;
-        print_alignment_header_info(pe, 32);
+        if (!silent) {
+            print_alignment_header_info(pe, 32);
+        }
     } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
         pe->optional_header64.size_of_image = largest_vma;
-        print_alignment_header_info(pe, 64);
+        if (!silent) {
+            print_alignment_header_info(pe, 64);
+        }
     }
 
     if (0 > msync(mem.p, mem.size, MS_SYNC)) {

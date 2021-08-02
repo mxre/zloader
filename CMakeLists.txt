@@ -18,6 +18,7 @@ add_compile_options(-mno-stack-arg-probe -fno-stack-protector -ffreestanding -mn
 set(COMPILE_TARGET "${LOADER_TARGET}-none-windows")
 set(CMAKE_LINKER lld-link)
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -out:<TARGET>")
+set(CMAKE_EXE_LINKER_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main")
 set(CMAKE_EXECUTABLE_SUFFIX ".efi")
 
 include(CheckCCompilerFlag)
@@ -62,36 +63,39 @@ add_subdirectory(src)
 add_executable(zloader src/main.rc $<TARGET_OBJECTS:src> $<TARGET_OBJECTS:efilib> $<TARGET_OBJECTS:lib> ${OPTIONAL_DEPENDENCIES})
 set_target_properties(zloader PROPERTIES
   SUFFIX "${EFI_ARCH}.efi.stub"
-  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
+  LINK_FLAGS "-version:0.1"
 )
 add_custom_command(TARGET zloader POST_BUILD
-  COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:zloader> --efiversion 2.0
+  COMMAND $<TARGET_FILE:pe_fixup> --silent --file $<TARGET_FILE:zloader> --efiversion 2.0
+  COMMENT Postprocessing $<TARGET_FILE:zloader>
 )
 
 if(LOADER_TARGET STREQUAL "aarch64")
   add_executable(fit src/fit_stub.c src/systemd.c $<TARGET_OBJECTS:efilib>)
   set_target_properties(fit PROPERTIES
     SUFFIX "${EFI_ARCH}.efi"
-    LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
+    LINK_FLAGS "-version:0.1"
   )
   target_compile_options(fit
     PUBLIC -target ${COMPILE_TARGET}
     PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
   )
   add_custom_command(TARGET fit POST_BUILD
-    COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:fit> --efiversion 2.0
+    COMMAND $<TARGET_FILE:pe_fixup> --silent --file $<TARGET_FILE:fit> --efiversion 2.0
+    COMMENT Postprocessing $<TARGET_FILE:fit>
   )
 endif(LOADER_TARGET STREQUAL "aarch64")
 
 add_executable(lockdown src/lockdown.c src/lockdown.rc $<TARGET_OBJECTS:efilib>)
 set_target_properties(lockdown PROPERTIES
   SUFFIX "${EFI_ARCH}.efi"
-  LINK_FLAGS "-subsystem:efi_application -tsaware:no -entry:efi_main -version:0.1"
+  LINK_FLAGS "-version:0.1"
 )
 target_compile_options(lockdown
   PUBLIC -target ${COMPILE_TARGET}
   PRIVATE "-std=gnu2x" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-gnu-variable-sized-type-not-at-end"
 )
 add_custom_command(TARGET lockdown POST_BUILD
-  COMMAND $<TARGET_FILE:pe_fixup> --file $<TARGET_FILE:lockdown> --efiversion 2.0
+  COMMAND $<TARGET_FILE:pe_fixup> --silent --file $<TARGET_FILE:lockdown> --efiversion 2.0
+  COMMENT Postprocessing $<TARGET_FILE:lockdown>
 )
