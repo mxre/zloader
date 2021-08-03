@@ -16,16 +16,17 @@ option(LOADER_USE_EFI_LOAD_IMAGE "Use LoadImage and StartImage instead of own pa
 
 add_compile_options(-mno-stack-arg-probe -fno-stack-protector -ffreestanding -mno-red-zone)
 set(COMPILE_TARGET "${LOADER_TARGET}-none-windows")
-set(CMAKE_LINKER lld-link)
-set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -out:<TARGET>")
-set(CMAKE_EXE_LINKER_FLAGS "-subsystem:efi_application -entry:efi_main")
-set(CMAKE_EXECUTABLE_SUFFIX ".efi")
 
 include(CheckCCompilerFlag)
 check_c_compiler_flag("-target ${COMPILE_TARGET}" CC_UNDERSTANDS_TARGET)
 if (NOT CC_UNDERSTANDS_TARGET)
   message(FATAL_ERROR "Compiler does not know -target ${COMPILE_TARGET}")
 endif()
+
+set(CMAKE_LINKER lld-link)
+set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -out:<TARGET>")
+set(CMAKE_EXECUTABLE_SUFFIX ".efi")
+set(CMAKE_EXE_LINKER_FLAGS "-subsystem:efi_application -entry:efi_main")
 
 if(LOADER_TARGET STREQUAL "x86_64")
   set(EFI_ARCH "x64")

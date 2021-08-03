@@ -10,10 +10,6 @@ ARCH=${7:-x64}
 
 KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz"}
 
-if [ -z "${INITRD}" ]; then
-	INITRD="/boot/initrd.img"
-fi;
-
 if [ "${CMDLINE}" = "/proc/cmdline" ]; then
 	cat "${CMDLINE}" > "/tmp/cmdline"
 	CMDLINE="/tmp/cmdline"

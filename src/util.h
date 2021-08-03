@@ -66,7 +66,7 @@ struct aligned_buffer {
 static __always_inline inline
 uint8_t* buffer_pos(simple_buffer_t buffer) {
     assert(buffer->buffer);
-    // assert(buffer->pos < buffer->allocated);
+    assert(buffer->pos < buffer->allocated);
 
     return (uint8_t*) buffer->buffer + buffer->pos;
 }
@@ -80,12 +80,12 @@ size_t buffer_len(simple_buffer_t buffer) {
 }
 
 static inline
-void _free_buffer(void* buffer) {
+void free_buffer(void* buffer) {
     simple_buffer_t b = (simple_buffer_t) buffer;
     if (b && b->buffer && b->free) b->free(b);
 }
 
-#define _cleanup_buffer _cleanup(_free_buffer)
+#define _cleanup_buffer _cleanup(free_buffer)
 
 static inline
 void free_simple_buffer(simple_buffer_t buffer) {

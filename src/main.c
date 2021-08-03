@@ -107,27 +107,40 @@ efi_status_t do_devicetree_fixup(
     if (fixup->revision < EFI_DT_FIXUP_PROTOCOL_REVISION) {
         return EFI_UNSUPPORTED;
     }
-    do {
-        efi_size_t size = buffer_len(fdt);
+    efi_size_t size = buffer_len(fdt);
+    err = fixup->fixup(
+        fixup,
+        buffer_pos(fdt),
+        &size,
+        EFI_DT_ALL
+    );
+    void* buffer;
+    /* UEFI specs say that we need to allocate in RuntimeServices Data */
+    if (EFI_SUCCESS != BS->allocate_pool(EFI_RUNTIME_SERVICES_DATA, size, &buffer))
+        return EFI_OUT_OF_RESOURCES;
+    memcpy(buffer, buffer_pos(fdt), buffer_len(fdt));
+    free_buffer(fdt);
+    fdt->free = free_simple_buffer;
+    fdt->buffer = buffer;
+    fdt->length = fdt->allocated = size;
+    fdt->pos = 0;
+
+    if (err == EFI_BUFFER_TOO_SMALL) {
         err = fixup->fixup(
             fixup,
             buffer_pos(fdt),
             &size,
             EFI_DT_ALL
         );
-        if (err == EFI_BUFFER_TOO_SMALL) {
-            void* buffer = malloc(size);
-            if (!buffer)
-                return EFI_OUT_OF_RESOURCES;
-            memcpy(buffer, buffer_pos(fdt), buffer_len(fdt));
-            fdt->free(fdt);
-            fdt->buffer = buffer;
-            fdt->length = fdt->allocated = size;
-            fdt->pos = 0;
-        }
-    } while (err == EFI_BUFFER_TOO_SMALL);
+    }
     if (EFI_ERROR(err))
         return err;
+
+    err = BS->install_configuration_table(&efi_fdt_guid, fdt->buffer);
+    if (EFI_ERROR(err))
+        return err;
+    /* assure that we don't free this buffer */
+    fdt->free = NULL;
     return EFI_SUCCESS;
 }
 #endif
@@ -248,7 +261,7 @@ efi_status_t efi_main(
     }
 
 #ifdef USE_EFI_DT_FIXUP
-    _cleanup_buffer struct simple_buffer fdt = { 0, .free = free_simple_buffer };
+    _cleanup_buffer struct simple_buffer fdt = { 0 };
     if (sections[SECTION_FDT].load_address) {
         fdt.buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_FDT].load_address;
         fdt.length = sections[SECTION_FDT].size;
@@ -270,8 +283,7 @@ efi_status_t efi_main(
         0
     };
 
-    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0, .free = free_simple_buffer };
-
+    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0 };
     uint64_t time = monotonic_time_usec();
     err = decompress(&linux_section, &decompressed_kernel);
     if (EFI_ERROR(err)) {

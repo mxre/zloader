@@ -17,6 +17,9 @@
 #define EFI_DT_FIXUP_PROTOCOL_GUID \
 	{ 0xe617d64c, 0xfe08, 0x46da, {0xf4, 0xdc, 0xbb, 0xd5, 0x87, 0x0c, 0x73, 0x00} }
 
+#define EFI_FDT_GUID \
+    { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
+
 #define EFI_DT_FIXUP_PROTOCOL_REVISION 0x00010000
 
 /* Add nodes and update properties */
@@ -26,13 +29,8 @@
  * and the memory reservation block
  */
 #define EFI_DT_RESERVE_MEMORY  0x00000002
-/* Install the device-tree as configuration table */
-#define EFI_DT_INSTALL_TABLE   0x00000004
 
-#define EFI_DT_ALL ( \
-    EFI_DT_APPLY_FIXUPS \
-    | EFI_DT_RESERVE_MEMORY \
-    | EFI_DT_INSTALL_TABLE)
+#define EFI_DT_ALL ( EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY )
 
 typedef struct efi_dt_fixup_protocol* efi_dt_fixup_protocol_t;
 
@@ -44,5 +42,7 @@ struct efi_dt_fixup_protocol {
         efi_size_t* buffer_size,
         uint32_t flags);
 };
+
+extern struct efi_guid efi_fdt_guid;
 
 extern struct efi_guid efi_dt_fixup_protocol_guid;

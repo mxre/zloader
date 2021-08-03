@@ -4,15 +4,15 @@
  * @brief parse, verify and relocate PE executable for EFI
  * @version 0.1
  * @date 2021-07-20
- * 
+ *
  * @copyright Copyright (c) 2021
- * 
+ *
  * @see https://github.com/rhboot/shim/blob/main/pe.c
- * 
+ *
  * @details
  * Mostly based on shim's relocation code which is coverd by the
  * following license:
- * 
+ *
  * Copyright 2012 Red Hat, Inc <mjg@redhat.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,7 +103,7 @@ bool allow_64bit() {
 /**
  * @brief transform image address to absolute address
  *  and perform bound checks
- * 
+ *
  * @param image
  *  pointer to image base address
  * @param size
@@ -114,7 +114,7 @@ bool allow_64bit() {
  *  `image + address`, if in bounds or NULL
  */
 __pure
-static inline 
+static inline
 void* image_address (const void *image, uint64_t size, uint64_t address) {
     /* address outside of image */
 	if (address > size)
@@ -130,7 +130,7 @@ void* image_address (const void *image, uint64_t size, uint64_t address) {
 
 /**
  * @brief check if this file can be executed on the compiled platform
- * 
+ *
  * @details
  *  this checks if the supplied header has:
  *      * same machine type as this file
@@ -203,7 +203,7 @@ efi_status_t read_headers(
         _MESSAGE("Invalid PE image");
         return EFI_LOAD_ERROR;
     }
-    
+
     uint8_t* image_base = (uint8_t*) buffer_pos(buffer);
     PE_image_headers_t pe = (PE_image_headers_t) (image_base + pe_offset);
     err = is_loadable(pe);
@@ -245,11 +245,11 @@ efi_status_t read_headers(
     }
     if (ctx->section_alignment == 0) {
         ctx->section_alignment = MAX(file_alignment, PAGE_SIZE);
-        _MESSAGE("Section alignment is 0, using %u instead", ctx->section_alignment);   
+        _MESSAGE("Section alignment is 0, using %u instead", ctx->section_alignment);
     }
 
     uint32_t section_header_offset = pe_offset
-        + sizeof(struct PE_COFF_header) 
+        + sizeof(struct PE_COFF_header)
         + pe->file_header.size_of_optional_header;
     if (((uint32_t) ctx->size_of_image - section_header_offset)
         / sizeof(struct PE_section_header) <= ctx->number_of_sections
@@ -289,9 +289,9 @@ efi_status_t read_headers(
 
 /**
  * @brief relocate sections
- * 
+ *
  * @param[in] buffer
- *  pointer to the base of the virtual memory segment 
+ *  pointer to the base of the virtual memory segment
  * @param[in] ctx
  * @param[out] reloc_section
  *  section header for the relocation section
@@ -321,14 +321,14 @@ efi_status_t relocate_sections(
         /* skip sections with size 0 marked discardable */
         if ((sec->characteristics & PE_SECTION_MEM_DISCARDABLE) && sec->virtual_size == 0)
             continue;
-        
+
         uint8_t* base = image_address(buffer, ctx->size_of_image,
             sec->virtual_address);
         uint8_t* end =  image_address(buffer, ctx->size_of_image,
             sec->virtual_address + sec->virtual_size - 1);
 
         // _MESSAGE("%3hu %.10s %p-%p [%X,%X]", i, sec->name, base, end, sec->virtual_address, sec->virtual_size);
-        
+
         if (end < base) {
             _MESSAGE("Section %.*s has negative size", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
             return EFI_LOAD_ERROR;
@@ -353,7 +353,7 @@ efi_status_t relocate_sections(
         if (sec->characteristics & PE_SECTION_MEM_DISCARDABLE)
             continue;
 
-        /* loadable sections with vma or vma size 0 are invalid */ 
+        /* loadable sections with vma or vma size 0 are invalid */
         if (!base || !end) {
             _ERROR("Section %*s has illegal VMA", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
             return EFI_LOAD_ERROR;
@@ -366,7 +366,7 @@ efi_status_t relocate_sections(
 				_MESSAGE("Section %.*s is inside image headers", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
                 return EFI_LOAD_ERROR;
 			}
-            
+
             if (base != ctx->base + sec->pointer_to_raw_data) {
                 if (sec->size_of_raw_data > 0)
                     memcpy(base, ctx->base + sec->pointer_to_raw_data, sec->size_of_raw_data);
@@ -388,11 +388,11 @@ efi_status_t relocate_sections(
 }
 
 /**
- * @brief 
- * 
+ * @brief
+ *
  * @param[in] buffer
- *  pointer to the base of the virtual memory segment 
- * @param[in] ctx 
+ *  pointer to the base of the virtual memory segment
+ * @param[in] ctx
  * @param[in] reloc_section
  *  pointer to .reloc section header
  */
@@ -411,7 +411,7 @@ efi_status_t relocation_fixup(
         reloc_section->pointer_to_raw_data);
     uint8_t* reloc_end  = image_address(ctx->base, ctx->size_of_image,
         reloc_section->pointer_to_raw_data + reloc_section->virtual_size);
-    
+
     if (!reloc_base && !reloc_end)
         return EFI_SUCCESS;
     if (!reloc_base || !reloc_end)
@@ -557,7 +557,7 @@ efi_status_t PE_handle_image(
     aligned_buffer_t data = &buf;
     allocate_aligned_buffer(ctx.size_of_image, EFI_LOADER_DATA, &buf);
     memcpy(data->buffer, ctx.base, ctx.size_of_headers);
-    
+
     *entry_point = (efi_entry_point_t) image_address(data->buffer, ctx.size_of_image, ctx.entry_point);
     if (!*entry_point) {
         _ERROR("Entry point is invalid");
@@ -571,7 +571,7 @@ efi_status_t PE_handle_image(
         PE_section_t reloc_section = NULL;
         err = relocate_sections(data->buffer, &ctx, &reloc_section);
         if (EFI_ERROR(err)) {
-            return EFI_LOAD_ERROR;   
+            return EFI_LOAD_ERROR;
         }
 
         /* relocate section found need to apply fixups */
@@ -634,6 +634,6 @@ efi_status_t PE_handle_image(
 
     /* don't free allocated buffer on exit */
     data->free = NULL;
-    
+
     return EFI_SUCCESS;
 }
