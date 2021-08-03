@@ -1,4 +1,4 @@
-LZ4 from [https://github.com/lz4/lz4] commit `v1.9.2-334-gc240126` with
+LZ4 from https://github.com/lz4/lz4 commit `v1.9.2-334-gc240126` with
 changes made to accommodate clang with PE/Windows target uses for compiling
 EFI executables.
 

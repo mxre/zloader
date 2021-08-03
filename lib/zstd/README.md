@@ -1,4 +1,4 @@
-ZSTD Source code extracted from [https://github.com/facebook/zstd] commit `v1.4.7-479-gb3e372c1` with the distributed freestanding library tool using the following options:
+ZSTD Source code extracted from https://github.com/facebook/zstd commit `v1.4.7-479-gb3e372c1` with the distributed freestanding library tool using the following options:
 
 ```
 ../freestanding_lib/freestanding.py \

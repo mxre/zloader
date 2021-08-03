@@ -9,7 +9,6 @@
  *
  * @see https://github.com/u-boot/u-boot/include/efi_dt_fixup.h
  */
-
 #pragma once
 
 #include <efi.h>

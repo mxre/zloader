@@ -7,11 +7,23 @@ platform:
 
  * Linux for AArch64 does not have Kernel Image compression support
  * systemd-boot stub does not support AArch64 (only x86 specific EFI handover)
+ * DeviceTree can't be embedded in the EFI image (like initrd)
 
 It does so by providing a boot stub (a drop in replacement for the systemd-boot
 stub) wih support for LZ4 compressed and/or ZSTD comressed kernel images. The
 Linux kernel itself must have an EFI stub (which is usually the case in
-modern distributions)
+modern distributions).
+
+The x86 specific EFI handover is replaced by using the general EFI Entry point
+of the Kernel, all Linux specific Setup is then handled by the Kernel's EFI
+stub. initrd is passed via `LINUX_INITRD_MEDIA_GUID` [[1],[2]] DevicePath
+(requires Linux 5.7+ on Aarch64 and 5.8+ on x86_64) and a FlatDeviceTree (fdt) can
+be included and installed as an EFI configuration table, if the bootloader
+supports `EFI_DT_FIXUP_PROTOCOL` [[3]] (requires UBoot 2021.04).
+
+[1]: https://github.com/torvalds/linux/commit/f61900fd0ebf6c6b91719d63272a54f4d11051df
+[2]: https://github.com/torvalds/linux/commit/ec93fc371f014a6fb483e3556061ecad4b40735c
+[3]: https://github.com/U-Boot-EFI/EFI_DT_FIXUP_PROTOCOL
 
 Additionally two UEFI tools are provided:
 
