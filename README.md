@@ -195,19 +195,19 @@ To create a signed FIT image please refer to the UBoot documentation, an example
 			type = "flat_dt";
 			arch = "aarch64";
 			compression = "none";
-            load = <0x6f00000>;
+			load = <0x6f00000>;
 			hash-1 {
 				algo = "sha256";
 			};
 		};
 
-        fdt-base {
+		fdt-overlay {
 			description = "DTB Overlay";
 			data = /incbin/("overlay.dtbo");
 			type = "flat_dt";
 			arch = "aarch64";
 			compression = "none";
-            load = <0x6fc0000>;
+			load = <0x6fc0000>;
 			hash-1 {
 				algo = "sha256";
 			};
