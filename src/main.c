@@ -270,7 +270,7 @@ efi_status_t efi_main(
         0
     };
 
-    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0 };
+    _cleanup_buffer struct simple_buffer decompressed_kernel = { 0, .free = free_simple_buffer };
 
     uint64_t time = monotonic_time_usec();
     err = decompress(&linux_section, &decompressed_kernel);
