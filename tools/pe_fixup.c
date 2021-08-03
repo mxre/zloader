@@ -29,6 +29,7 @@ struct section_vma {
     { .name = ".cmdline",   .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
     { .name = ".linux",     .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
     { .name = ".initrd",    .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".fdt",       .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
     { 0 }
 };
 

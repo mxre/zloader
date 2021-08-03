@@ -110,14 +110,17 @@ lz4 --content-size --best --favor-decSpeed vmlinux kernel.lz4
 
 Note that only the `.linux` section is required `.osrel` is usefull for enabling
 systemd-boot autodiscovert, `.cmdline` is the default cmdline that is passed on
-and `.initrd` is the ramdisk.
+and `.initrd` is the ramdisk and `.fdt` is a device tree binary, UBoot fixups wull
+be applied if the EFI-UBoot-fixup protocol is found.
+
 (when built for x86_64 replace `aa64` with `x64`)
 ```
 llvm-objcopy \
 	--add-section .osrel="/etc/os-release" \
 	--add-section .cmdline="/proc/cmdline" \
-	--add-section .linux="kernel.lz4"    \
-	--add-section .initrd="initrd.img"   \
+	--add-section .linux="kernel.lz4"      \
+	--add-section .initrd="initrd.img"     \
+	--add-section .fdt="devicetree.dtb"    \
 	"zloaderaa64.efi.stub" "bootaa64.efi"
 ```
 Since LLVM objopy does not set the Virtual Memory Address (VMA) we need to do
@@ -133,10 +136,11 @@ the default boot behaviour or when using systemd-boot it can be copied to
 Using UBoot FIT
 ---------------
 
-When using UBoot and SecureBoot on AArch64 the problem still persists on how to
-load the Device Tree in a secure way. Usually wuth UBoot the device tree is
-loaded and passed as a configuration table to the OS. This happens before
-UEFI and SecureBoot is initialized and is not cryptographicaly verified.
+Using a DeviceTree embedded in the zloader image only allows for static compile
+`.dtb` files. Sometimes it is necessary to have several configurations and
+modify the DeviceTree prior to booting. This is done using DeviceTree Overlays,
+usually stored in `.dtbo` files. The securest and easiest way to load
+DeviceTrees with overlay is using FIT images.
 
 UBoot supports signed FIT images (which are basically DeviceTree files with
 binaries embedded in them), so the solution is to create a FIT images containing

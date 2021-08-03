@@ -5,7 +5,8 @@ INITRD="$2"
 KEYS="$3"
 CMDLINE=${4:-"/proc/cmdline"}
 OSRELEASE=${5:-"/etc/os-release"}
-ARCH=${6:-x64}
+FDT="$6"
+ARCH=${7:-x64}
 
 KERNEL=${KERNEL:-"/usr/lib/modules/$(uname -r)/vmlinuz"}
 
@@ -23,6 +24,7 @@ llvm-objcopy \
 	${CMDLINE:+--add-section .cmdline="${CMDLINE}"} \
 	--add-section .linux="${KERNEL}" \
 	${INITRD:+--add-section .initrd="${INITRD}"} \
+	${FDT:+--add-section .fdt="${FDT}"} \
 	"zloader${ARCH}.efi.stub" "/tmp/zloader.efi"
 
 rm -f "/tmp/cmdline"

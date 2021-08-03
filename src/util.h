@@ -47,7 +47,7 @@ typedef struct simple_buffer* simple_buffer_t;
 struct simple_buffer {
     void* buffer;       ///< pointer to base of the buffer
     size_t length;      ///< length of data set in the buffer
-    size_t pos;         ///< position of the cursor  
+    size_t pos;         ///< position of the cursor
     size_t allocated;   ///< number of bytes allocated, this is the maximum size of the buffer
     void (*free) (simple_buffer_t);
 };
@@ -66,7 +66,7 @@ struct aligned_buffer {
 static __always_inline inline
 uint8_t* buffer_pos(simple_buffer_t buffer) {
     assert(buffer->buffer);
-    assert(buffer->pos < buffer->allocated);
+    // assert(buffer->pos < buffer->allocated);
 
     return (uint8_t*) buffer->buffer + buffer->pos;
 }
@@ -105,7 +105,7 @@ bool allocate_simple_buffer(size_t length, simple_buffer_t buffer) {
     buffer->buffer = malloc(length);
     if (!buffer->buffer)
         return false;
-    
+
     buffer->length = buffer->pos = 0;
     buffer->allocated = length;
     buffer->free = free_simple_buffer;
@@ -131,8 +131,8 @@ bool allocate_aligned_buffer(size_t length, efi_memory_t type, aligned_buffer_t 
 
 /**
  * @brief Create XXH64 hash for buffer contents
- * 
- * @param buffer 
+ *
+ * @param buffer
  * @returns XXH64 hash
  * @returns -1 on ERROR
  */

@@ -6,6 +6,7 @@
 #include "pe.h"
 #include "initrd.h"
 #include "systemd.h"
+#include "fdt_fixup.h"
 
 #if USE_EFI_LOAD_IMAGE
 static inline
@@ -53,7 +54,7 @@ efi_status_t execute_image_from_memory(
     assert(EFI_IMAGE);
 
     efi_device_path_t dp = create_memory_mapped_device_path((efi_physical_address_t) buffer_pos(buffer), buffer_len(buffer), _EFI_POOL_ALLOCATION);
-    
+
     efi_handle_t image;
     err = BS->load_image(false, EFI_IMAGE, (efi_device_path_t) dp, buffer_pos(buffer), buffer_len(buffer), &image);
 
@@ -88,10 +89,48 @@ efi_status_t execute_image_from_memory(
             _ERROR("Image returned with: %r", err);
         loaded_image->unload(image);
     }
-    
+
 #endif
     return err;
 }
+
+#ifdef USE_EFI_DT_FIXUP
+static inline
+efi_status_t do_devicetree_fixup(
+    simple_buffer_t fdt
+) {
+    efi_dt_fixup_protocol_t fixup;
+    efi_status_t err = BS->locate_protocol(&efi_dt_fixup_protocol_guid, NULL, (void**) &fixup);
+    if (EFI_ERROR(err))
+        return err;
+
+    if (fixup->revision < EFI_DT_FIXUP_PROTOCOL_REVISION) {
+        return EFI_UNSUPPORTED;
+    }
+    do {
+        efi_size_t size = buffer_len(fdt);
+        err = fixup->fixup(
+            fixup,
+            buffer_pos(fdt),
+            &size,
+            EFI_DT_ALL
+        );
+        if (err == EFI_BUFFER_TOO_SMALL) {
+            void* buffer = malloc(size);
+            if (!buffer)
+                return EFI_OUT_OF_RESOURCES;
+            memcpy(buffer, buffer_pos(fdt), buffer_len(fdt));
+            fdt->free(fdt);
+            fdt->buffer = buffer;
+            fdt->length = fdt->allocated = size;
+            fdt->pos = 0;
+        }
+    } while (err == EFI_BUFFER_TOO_SMALL);
+    if (EFI_ERROR(err))
+        return err;
+    return EFI_SUCCESS;
+}
+#endif
 
 static inline
 void set_systemd_variables() {
@@ -112,13 +151,13 @@ void set_systemd_variables() {
     efi_var_set_printf(&loader_guid, u"LoaderFirmwareType",
         EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
         u"UEFI %hu.%02hu", ST->hdr.revision >> 16, ST->hdr.revision);
-    
+
     if (!efi_var_attributes(&loader_guid, u"LoaderImageIdentifier")) {
         efi_var_set_printf(&loader_guid, u"LoaderImageIdentifier",
             EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
             u"%D", EFI_LOADED_IMAGE->file_path);
     }
-    
+
     efi_device_path_protocol_t dp;
     BS->open_protocol(EFI_LOADED_IMAGE->device_handle, &efi_device_path_protocol_guid, (void**) &dp,
         EFI_IMAGE, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
@@ -130,7 +169,7 @@ void set_systemd_variables() {
         efi_var_set_printf(&loader_guid, u"LoaderDevicePartUUID",
             EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
             u"%g", part_guid);
-    }   
+    }
 }
 
 efi_api
@@ -160,11 +199,12 @@ efi_status_t efi_main(
         { .name = ".cmdline", 0 },
         { .name = ".linux",   0 },
         { .name = ".initrd",  0 },
+        { .name = ".fdt",     0 },
         { 0 }
     };
 
     enum {
-        SECTION_OSREL, SECTION_CMDLINE, SECTION_LINUX, SECTION_INITRD
+        SECTION_OSREL, SECTION_CMDLINE, SECTION_LINUX, SECTION_INITRD, SECTION_FDT
     };
 
     if (!PE_locate_sections(sections)) {
@@ -195,7 +235,6 @@ efi_status_t efi_main(
         struct simple_buffer initrd = {
             .buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_INITRD].load_address,
             .length = sections[SECTION_INITRD].size,
-            .allocated = sections[SECTION_INITRD].size,
             0
         };
 
@@ -208,13 +247,29 @@ efi_status_t efi_main(
         }
     }
 
+#ifdef USE_EFI_DT_FIXUP
+    _cleanup_buffer struct simple_buffer fdt = { 0, .free = free_simple_buffer };
+    if (sections[SECTION_FDT].load_address) {
+        fdt.buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_FDT].load_address;
+        fdt.length = sections[SECTION_FDT].size;
+
+        _MESSAGE("embedded DeviceTree found: size: %zu", buffer_len(&fdt));
+        _MESSAGE("DeviceTree hash %blX", buffer_xxh64(&fdt));
+
+        err = do_devicetree_fixup(&fdt);
+        if (EFI_ERROR(err)) {
+            _ERROR("Failed to install DeviceTree: %r", err);
+        }
+    }
+#endif
+
     struct simple_buffer linux_section = {
         .buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_LINUX].load_address,
         .length = sections[SECTION_LINUX].size,
         .allocated = sections[SECTION_LINUX].size,
         0
     };
-    
+
     _cleanup_buffer struct simple_buffer decompressed_kernel = { 0 };
 
     uint64_t time = monotonic_time_usec();

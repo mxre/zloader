@@ -7,6 +7,12 @@ set(SOURCES
     decompress.c
 )
 
+if(LOADER_TARGET STREQUAL "aarch64")
+  # useless on x86 but does not harm if included on aarch64
+  list(APPEND SOURCES fdt_fixup.c)
+  add_compile_definitions(USE_EFI_DT_FIXUP)
+endif(LOADER_TARGET STREQUAL "aarch64")
+
 if(LOADER_USE_EFI_LOAD_IMAGE)
   add_compile_definitions(USE_EFI_LOAD_IMAGE)
 else()

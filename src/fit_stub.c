@@ -5,6 +5,8 @@
 #include "util.h"
 #include "systemd.h"
 
+static efi_device_path_utilities_t device_path_utils;
+
 static
 efi_status_t run_image_from_file(
     const efi_device_path_t dp,
@@ -93,7 +95,7 @@ efi_status_t boot_entry(
     _MESSAGE("Boot%04hx %ls %D", entry_num, boot_entry->description, dp);
 
     efi_var_set(&efi_global_variable_guid, u"BootCurrent", EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS, sizeof(uint16_t), &entry_num);
-    
+
     uint8_t* options = (uint8_t*) dp + boot_entry->file_path_list_length;
     efi_size_t options_length = options - ((uint8_t*) boot_entry + boot_entry_length);
     _MESSAGE("Execute %D", dp);
@@ -106,7 +108,30 @@ efi_status_t boot_entry(
     return EFI_SUCCESS;
 }
 
-static efi_device_path_utilities_t device_path_utils;
+static
+efi_status_t boot_file(efi_device_path_t efi_device, const char16_t* filename) {
+    efi_status_t err;
+    efi_size_t len = wcslen(filename);
+    efi_filepath_t fl = (efi_filepath_t) malloc(sizeof(struct efi_filepath) + sizeof(char16_t) * (len + 1));
+    if (!fl) {
+        _MESSAGE("Could not allocate filepath");
+        return EFI_OUT_OF_RESOURCES;
+    }
+    fl->hdr.type = MEDIA_DEVICE_PATH;
+    fl->hdr.subtype = MEDIA_FILEPATH_DP;
+    fl->hdr.length = sizeof(struct efi_filepath) + sizeof(char16_t) * (len + 1);
+    wcsncpy(fl->pathname, filename, len); fl->pathname[len] = u'\0';
+    efi_device_path_t d = device_path_utils->append_node(efi_device, (efi_device_path_t) fl);
+    free(fl);
+
+    _MESSAGE("Execute %D", d);
+    err = run_image_from_file(d, NULL, 0);
+    if (EFI_ERROR(err))
+        _ERROR("%D failed: %r", d, err);
+    free(d);
+
+    return err;
+}
 
 efi_api
 efi_status_t efi_main(efi_handle_t image, efi_system_table_t systable) {
@@ -124,7 +149,7 @@ efi_status_t efi_main(efi_handle_t image, efi_system_table_t systable) {
         _MESSAGE("Could not open DevicePathUtilities: %r");
         return err;
     }
-    
+
     efi_size_t sz = sizeof(uint16_t);
     uint16_t next;
     err = efi_var_get(&efi_global_variable_guid, u"BootNext", NULL, &sz, &next);
@@ -153,25 +178,8 @@ efi_status_t efi_main(efi_handle_t image, efi_system_table_t systable) {
         _ERROR("Can't open current root directory: %r", err);
         return err;
     }
-    
-    char16_t filename[] = u"\\efi\\boot\\boot" EFI_ARCH ".efi";
-    efi_size_t len = wcslen(filename);
-    efi_filepath_t fl = (efi_filepath_t) malloc(sizeof(struct efi_filepath) + sizeof(char16_t) * (len + 1));
-    if (!fl) {
-        _MESSAGE("Could not allocate filepath");
-        return EFI_OUT_OF_RESOURCES;
-    }
-    fl->hdr.type = MEDIA_DEVICE_PATH;
-    fl->hdr.subtype = MEDIA_FILEPATH_DP;
-    fl->hdr.length = sizeof(struct efi_filepath) + sizeof(char16_t) * (len + 1);
-    wcsncpy(fl->pathname, filename, len); fl->pathname[len] = u'\0';
-    efi_device_path_t d = device_path_utils->append_node(dp, (efi_device_path_t) fl);
-    free(fl);
 
-    _MESSAGE("Execute %D", d);
-    err = run_image_from_file(d, NULL, 0);
-    if (EFI_ERROR(err))
-        _ERROR("%D failed: %r", d, err);
-    free(d);
+    err = boot_file(dp, u"\\efi\\boot\\boot" EFI_ARCH ".efi");
+    err = boot_file(dp, u"\\shell" EFI_ARCH ".efi");
     return err;
 }
