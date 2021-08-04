@@ -115,8 +115,8 @@ efi_status_t do_devicetree_fixup(
         EFI_DT_ALL
     );
     void* buffer;
-    /* UEFI specs say that we need to allocate in RuntimeServices Data */
-    if (EFI_SUCCESS != BS->allocate_pool(EFI_RUNTIME_SERVICES_DATA, size, &buffer))
+    /* ACPI Reclaim Memory according to EBBR 2.0 specs */
+    if (EFI_SUCCESS != BS->allocate_pool(EFI_ACPI_RECLAIM_MEMORY, size, &buffer))
         return EFI_OUT_OF_RESOURCES;
     memcpy(buffer, buffer_pos(fdt), buffer_len(fdt));
     free_buffer(fdt);
