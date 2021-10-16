@@ -208,12 +208,12 @@ efi_status_t efi_main(
 
     /* get the relevant sections from the image */
     struct PE_locate_sections sections[] = {
-        { .name = ".osrel",   0 },
-        { .name = ".cmdline", 0 },
-        { .name = ".linux",   0 },
-        { .name = ".initrd",  0 },
-        { .name = ".fdt",     0 },
-        { 0 }
+        { .name = ".osrel"   },
+        { .name = ".cmdline" },
+        { .name = ".linux"   },
+        { .name = ".initrd"  },
+        { .name = ".dtb"     },
+        { }
     };
 
     enum {
@@ -261,7 +261,7 @@ efi_status_t efi_main(
     }
 
 #ifdef USE_EFI_DT_FIXUP
-    _cleanup_buffer struct simple_buffer fdt = { 0 };
+    _cleanup_buffer struct simple_buffer fdt = { };
     if (sections[SECTION_FDT].load_address) {
         fdt.buffer = (uint8_t*) EFI_LOADED_IMAGE->image_base + sections[SECTION_FDT].load_address;
         fdt.length = sections[SECTION_FDT].size;

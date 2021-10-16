@@ -49,21 +49,17 @@ bool PE_locate_sections(
         _MESSAGE("PE invalid OPT_HEADER magic: %hX", pe->optional_header.magic);
         return false;
     }
-
-    PE_optional_header64_t opt_header = &pe->optional_header64;
 #elif __SIZE_WIDTH__ == 32 /* support PE32 32bit images */
     if (pe->optional_header.magic != PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         _MESSAGE("PE invalid OPT_HEADER magic: %hX", pe->optional_header.magic);
         return false;
     }
-
-    PE_optional_header32_t opt_header = &pe->optional_header32;
 #else
 #  error "Only 32 and 64 bit platforms are supported"
 #endif
 
-    if (opt_header->subsystem != PE_HEADER_SUBSYSTEM_EFI_APPLICATION) {
-        _MESSAGE("PE not an EFI application: %hX", opt_header->subsystem);
+    if (pe->optional_header.subsystem != PE_HEADER_SUBSYSTEM_EFI_APPLICATION) {
+        _MESSAGE("PE not an EFI application: %hX", pe->optional_header.subsystem);
         return false;
     }
 

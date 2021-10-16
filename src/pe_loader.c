@@ -215,14 +215,14 @@ efi_status_t read_headers(
 
     /* set contect struct for 32 and 64 bits */
 #   define set_context(ctx, pe, bits) { \
-    ctx->image_address = __join(pe->optional_header,bits).image_base; \
-    ctx->number_of_RVA_and_sizes = __join(pe->optional_header,bits).number_of_RVA_and_sizes; \
-    ctx->size_of_headers = __join(pe->optional_header,bits).size_of_headers; \
-    ctx->size_of_image = __join(pe->optional_header,bits).size_of_image; \
-    ctx->section_alignment = __join(pe->optional_header,bits).section_alignment; \
-    size_of_optheader = sizeof(__join(pe->optional_header,bits)); \
-    file_alignment =  __join(pe->optional_header,bits).file_alignment; }
+        ctx->image_address = __join(pe->optional_header.image_base,bits); \
+        ctx->number_of_RVA_and_sizes = __join(pe->optional_header.number_of_RVA_and_sizes,bits); \
+    }
 
+    ctx->size_of_headers = pe->optional_header.size_of_headers;
+    ctx->size_of_image = pe->optional_header.size_of_image;
+    ctx->section_alignment = pe->optional_header.section_alignment;
+    file_alignment =  pe->optional_header.file_alignment;
     ctx->number_of_sections = pe->file_header.number_of_sections;
     ctx->entry_point = pe->optional_header.address_of_entry_point;
     ctx->base = image_base;
@@ -274,8 +274,8 @@ efi_status_t read_headers(
     ctx->first_section = (PE_section_t) (image_base + section_header_offset);
 
 #   define set_context(ctx, pe, bits) { \
-    ctx->res_directory = &__join(pe->optional_header,bits).data_directory[PE_HEADER_DIRECTORY_ENTRY_RESOURCE]; \
-    ctx->reloc_directory = &__join(pe->optional_header,bits).data_directory[PE_HEADER_DIRECTORY_ENTRY_BASERELOC]; }
+    ctx->res_directory = &__join(pe->optional_header.data_directory,bits)[PE_HEADER_DIRECTORY_ENTRY_RESOURCE]; \
+    ctx->reloc_directory = &__join(pe->optional_header.data_directory,bits)[PE_HEADER_DIRECTORY_ENTRY_BASERELOC]; }
 
     if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
         set_context(ctx, pe, 32);

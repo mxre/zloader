@@ -7,7 +7,7 @@
 
 #define DOS_PE_OFFSET_LOCATION 0x3C
 
-/** 
+/**
  * COFF file header
  */
 struct __packed PE_COFF_header {
@@ -122,63 +122,10 @@ struct __packed PE_version16 {
     uint16_t minor;
 };
 
-struct __packed PE_optional_header_common {
-    uint16_t magic;
-    /* Standard fields. */
-    struct   PE_version8 linker_version;
-    uint32_t size_of_code;
-    uint32_t size_of_initialized_data;
-    uint32_t size_of_uninitialized_data;
-    uint32_t address_of_entry_point;
-    uint32_t base_of_code;
-};
-
 #define PE_HEADER_OPTIONAL_HDR32_MAGIC 0x10b
-
-/**
- * @brief Optional COFF Header Fields for PE32. 
- */
-struct __packed PE_optional_header32 {
-    uint16_t magic;
-    /* Standard fields. */
-    struct   PE_version8 linker_version;
-    uint32_t size_of_code;
-    uint32_t size_of_initialized_data;
-    uint32_t size_of_uninitialized_data;
-    uint32_t address_of_entry_point;
-    uint32_t base_of_code;
-    uint32_t base_of_data;                       ///< PE32 contains this additional field, which is absent in PE32+.
-
-    /* Optional Header Windows-Specific Fields. */
-    uint32_t image_base;
-    uint32_t section_alignment;
-    uint32_t file_alignment;
-    struct   PE_version16 operation_system_version;
-    struct   PE_version16 image_version;
-    struct   PE_version16 subsystem_version;
-    uint32_t win32_version_value;               ///< reserved always 0
-    uint32_t size_of_image;
-    uint32_t size_of_headers;
-    uint32_t check_sum;
-    uint16_t subsystem;
-    uint16_t DLL_characteristics;
-    uint32_t size_of_stack_reserve;
-    uint32_t size_of_stack_commit;
-    uint32_t size_of_heap_reserve;
-    uint32_t size_of_heap_commit;
-    uint32_t loader_flags;
-    uint32_t number_of_RVA_and_sizes;
-    struct   PE_data_directory data_directory[PE_HEADER_NUMBER_OF_DIRECTORY_ENTRIES];
-};
-
-typedef struct PE_optional_header32* PE_optional_header32_t;
-
 #define PE_HEADER_OPTIONAL_HDR64_MAGIC 0x20b
 
-/**
- * @brief Optional COFF Header Fields for PE32+. 
- */
-struct __packed PE_optional_header64 {
+struct __packed PE_optional_header {
     uint16_t magic;
     /* Standard fields. */
     struct   PE_version8 linker_version;
@@ -187,9 +134,13 @@ struct __packed PE_optional_header64 {
     uint32_t size_of_uninitialized_data;
     uint32_t address_of_entry_point;
     uint32_t base_of_code;
-
-    /* Optional Header Windows-Specific Fields. */
-    uint64_t image_base;
+    union {
+        struct {
+            uint32_t base_of_data;              ///< PE32 contains this additional field, which is absent in PE32+.
+            uint32_t image_base32;
+        };
+        uint64_t image_base64;
+    };
     uint32_t section_alignment;
     uint32_t file_alignment;
     struct   PE_version16 operation_system_version;
@@ -201,16 +152,27 @@ struct __packed PE_optional_header64 {
     uint32_t check_sum;
     uint16_t subsystem;
     uint16_t DLL_characteristics;
-    uint64_t size_of_stack_reserve;
-    uint64_t size_of_stack_commit;
-    uint64_t size_of_heap_reserve;
-    uint64_t size_of_heap_commit;
-    uint32_t loader_flags;
-    uint32_t number_of_RVA_and_sizes;
-    struct   PE_data_directory data_directory[PE_HEADER_NUMBER_OF_DIRECTORY_ENTRIES];
+    union {
+        struct {
+            uint64_t size_of_stack_reserve32;
+            uint64_t size_of_stack_commit32;
+            uint64_t size_of_heap_reserve32;
+            uint64_t size_of_heap_commit32;
+            uint32_t loader_flags32;
+            uint32_t number_of_RVA_and_sizes32;
+            struct   PE_data_directory data_directory32[PE_HEADER_NUMBER_OF_DIRECTORY_ENTRIES];
+        };
+        struct {
+            uint64_t size_of_stack_reserve64;
+            uint64_t size_of_stack_commit64;
+            uint64_t size_of_heap_reserve64;
+            uint64_t size_of_heap_commit64;
+            uint32_t loader_flags64;
+            uint32_t number_of_RVA_and_sizes64;
+            struct   PE_data_directory data_directory64[PE_HEADER_NUMBER_OF_DIRECTORY_ENTRIES];
+        };
+    };
 };
-
-typedef struct PE_optional_header64* PE_optional_header64_t;
 
 #define PE_HEADER_SUBSYSTEM_UNKNOWN                     UINT16_C(0)  ///< An unknown subsystem
 #define PE_HEADER_SUBSYSTEM_NATIVE                      UINT16_C(1)  ///< Device drivers and native Windows processes
@@ -241,22 +203,18 @@ typedef struct PE_optional_header64* PE_optional_header64_t;
 
 #define PE_HEADER_SIGNATURE UINT32_C(0x00004550) /* PE\0\0 */
 
-/** 
+/**
  * @brief PE header
  */
 struct __packed PE_image_headers {
     struct   PE_COFF_header file_header;
-    union {
-        struct   PE_optional_header_common optional_header;
-        struct   PE_optional_header32 optional_header32;
-        struct   PE_optional_header64 optional_header64;
-    };
+    struct   PE_optional_header optional_header;
 };
 
 typedef struct PE_image_headers* PE_image_headers_t;
 
 /**
- * @brief Length of section name 
+ * @brief Length of section name
  */
 #define PE_SECTION_SIZE_OF_SHORT_NAME 8
 
@@ -289,12 +247,12 @@ typedef struct PE_section_header* PE_section_t;
 #define PE_SECTION_CNT_CODE                  0x00000020
 #define PE_SECTION_CNT_INITIALIZED_DATA      0x00000040
 #define PE_SECTION_CNT_UNINITIALIZED_DATA    0x00000080
-                                                   
+
 #define PE_SECTION_LNK_OTHER                 0x00000100 ///< Reserved.
 #define PE_SECTION_LNK_INFO                  0x00000200 ///< Section contains comments or some other type of information.
 #define PE_SECTION_LNK_REMOVE                0x00000800 ///< Section contents will not become part of image.
 #define PE_SECTION_LNK_COMDAT                0x00001000
-                                                   
+
 #define PE_SECTION_ALIGN_1BYTES              0x00100000
 #define PE_SECTION_ALIGN_2BYTES              0x00200000
 #define PE_SECTION_ALIGN_4BYTES              0x00300000
@@ -304,7 +262,7 @@ typedef struct PE_section_header* PE_section_t;
 #define PE_SECTION_ALIGN_64BYTES             0x00700000
 
 #define PE_SECTION_ALIGN_MASK                0x00F00000
-                                              
+
 #define PE_SECTION_MEM_DISCARDABLE           0x02000000
 #define PE_SECTION_MEM_NOT_CACHED            0x04000000
 #define PE_SECTION_MEM_NOT_PAGED             0x08000000
@@ -360,7 +318,7 @@ typedef struct PE_base_relocation* PE_base_relocation_t;
  * 32-bit word. The low 16 bits of the 32-bit value are stored in the 16-bit
  * word that follows this base relocation. This means that this base
  * relocation occupies two slots.
- * 
+ *
  */
 #define PE_RELOC_BASED_HIGHADJ          UINT16_C(0x4000)
 
@@ -416,4 +374,4 @@ typedef struct PE_base_relocation* PE_base_relocation_t;
  * @brief The base relocation applies the difference to the 64-bit field at
  * offset.
  */
-#define PE_RELOC_BASED_DIR64            UINT16_C(0xa000) 
+#define PE_RELOC_BASED_DIR64            UINT16_C(0xa000)

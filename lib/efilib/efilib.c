@@ -6,9 +6,9 @@
 
 efi_handle_t EFI_IMAGE = NULL;
 efi_file_handle_t EFI_ROOT = NULL;
-efi_system_table_t ST = NULL; 
-efi_boot_services_table_t BS = NULL; 
-efi_runtime_services_table_t RT = NULL; 
+efi_system_table_t ST = NULL;
+efi_boot_services_table_t BS = NULL;
+efi_runtime_services_table_t RT = NULL;
 efi_memory_t _EFI_POOL_ALLOCATION = EFI_BOOT_SERVICES_DATA;
 efi_loaded_image_t EFI_LOADED_IMAGE = NULL;
 uint64_t BOOT_TIME_USECS = 0;
@@ -69,11 +69,8 @@ uint32_t get_pe_subsystem_version() {
         EFILIB_ERROR("LoadedImageProtocol::ImageBase is not a valid executable");
         exit(EFI_UNSUPPORTED);
     }
-    if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC)
-        return (uint32_t) pe->optional_header32.subsystem_version.major << 16 | pe->optional_header32.subsystem_version.minor;
-    else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC)
-        return (uint32_t) pe->optional_header64.subsystem_version.major << 16 | pe->optional_header64.subsystem_version.minor;
-    
+    return (uint32_t) pe->optional_header.subsystem_version.major << 16 | pe->optional_header.subsystem_version.minor;
+
     EFILIB_ERROR("LoadedImageProtocol::ImageBase is not a valid executable");
     exit(EFI_UNSUPPORTED);
 }
@@ -84,7 +81,7 @@ void initialize_library(
 ) {
     BOOT_TIME_USECS = ticks_read();
     EFI_IMAGE = image;
-    
+
     ST = system_table;
     BS = system_table->boot_services;
     RT = system_table->runtime_services;

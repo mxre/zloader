@@ -11,6 +11,11 @@ target_compile_options(pe_fixup
   PRIVATE "-std=gnu2x"
 )
 
+add_executable(build_image build_image.c)
+target_compile_options(build_image
+  PRIVATE "-std=gnu2x"
+)
+
 add_custom_command(TARGET pe_fixup POST_BUILD
   BYPRODUCTS bundle_image.sh
   WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"

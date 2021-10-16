@@ -25,11 +25,11 @@ struct section_vma {
     uint32_t target_vma;
     uint32_t flags;
 } section_vma[] = {
-    { .name = ".osrel",     .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".cmdline",   .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".linux",     .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".initrd",    .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".fdt",       .target_vma = 0, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".osrel",     .target_vma = 0x20000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".cmdline",   .target_vma = 0x30000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".fdt",       .target_vma = 0x40000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".linux",     .target_vma = 0x2000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
+    { .name = ".initrd",    .target_vma = 0x4000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
     { 0 }
 };
 
@@ -51,8 +51,6 @@ void unmap_p(struct map* map) {
 }
 
 #define ALIGN_VALUE(v, a) ((v) + (((a) - (v)) & ((a) - 1)))
-
-#define __join(a, b) a ## b
 
 static
 void usage() {
@@ -196,75 +194,47 @@ int main(int argc, char* argv[]) {
         | PE_HEADER_LOCAL_SYMS_STRIPPED
         | PE_HEADER_DEBUG_STRIPPED;
 
-#define print_header_info(pe, bits) \
-    printf("target machine: %04hX (%u-bit) subsystem: %hu (%hu.%hu) " \
-        "flags: %04hX,%04hX version: %hu.%hu\n", \
-        pe->file_header.machine, \
-        bits, \
-        __join(pe->optional_header,bits).subsystem, \
-        __join(pe->optional_header,bits).subsystem_version.major, \
-        __join(pe->optional_header,bits).subsystem_version.minor, \
-        pe->file_header.characteristics, \
-        __join(pe->optional_header,bits).DLL_characteristics, \
-        __join(pe->optional_header,bits).image_version.major, \
-        __join(pe->optional_header,bits).image_version.minor )
-
-#define is_efi_app(pe, bits) \
-    __join(pe->optional_header,bits).subsystem == PE_HEADER_SUBSYSTEM_EFI_APPLICATION
-#define operation_system_version(pe, bits) \
-    __join(pe->optional_header,bits).operation_system_version
-#define subsystem_version(pe, bits) \
-    __join(pe->optional_header,bits).subsystem_version
-#define DLL_characteristics(pe, bits) \
-    __join(pe->optional_header,bits).DLL_characteristics
-
-#define fix_alignment_header(pe, bits) \
-    if ( __join(pe->optional_header,bits).file_alignment == 0) { \
-        fprintf(stderr, "file has file alginment header set to 0, overwriting with %u\n", 0x200); \
-         __join(pe->optional_header,bits).file_alignment = 0x200; \
-    } \
-    if ( __join(pe->optional_header,bits).section_alignment == 0) { \
-        fprintf(stderr, "file has section alginment header set to 0, overwriting with %u\n", PAGE_SIZE); \
-        __join(pe->optional_header,bits).section_alignment = PAGE_SIZE; \
-    }
-
     uint32_t section_alignment; uint32_t file_alignment;
-    if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
-        if (is_efi_app(pe, 32)) {
-            if (set_version) {
-                subsystem_version(pe, 32) = efi_version;
-                operation_system_version(pe, 32) = efi_version;
-            }
-            /* clear, this does not have any meaning to EFI */
-            DLL_characteristics(pe, 32) = 0;
-        }
-
-        fix_alignment_header(pe, 32);
-        section_alignment = pe->optional_header32.section_alignment;
-        file_alignment = pe->optional_header32.file_alignment;
-        /* print image information */
-        if (!silent) {
-            print_header_info(pe, 32);
-        }
-    } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
-        if (is_efi_app(pe, 64)) {
-            if (set_version) {
-                subsystem_version(pe, 64) = efi_version;
-                operation_system_version(pe, 64) = efi_version;
-            }
-            /* clear, this does not have any meaning to EFI */
-            DLL_characteristics(pe, 64) = 0;
-        }
-
-        fix_alignment_header(pe, 64);
-        section_alignment = pe->optional_header64.section_alignment;
-        file_alignment = pe->optional_header64.file_alignment;
-        if (!silent) {
-            print_header_info(pe, 64);
-        }
-    } else {
+    if (pe->optional_header.magic != PE_HEADER_OPTIONAL_HDR32_MAGIC
+        && pe->optional_header.magic != PE_HEADER_OPTIONAL_HDR64_MAGIC
+    ) {
         fprintf(stderr, "missing OPTHDR signature\n");
         return 1;
+    }
+    if (pe->optional_header.subsystem == PE_HEADER_SUBSYSTEM_EFI_APPLICATION) {
+        if (set_version) {
+            pe->optional_header.subsystem_version = efi_version;
+            pe->optional_header.operation_system_version = efi_version;
+        }
+        /* clear, this does not have any meaning to EFI */
+        pe->optional_header.DLL_characteristics = 0;
+    }
+
+    if (pe->optional_header.file_alignment == 0) {
+        fprintf(stderr, "file has file alginment header set to 0, overwriting with %u\n", 0x200);
+        pe->optional_header.file_alignment = 0x200;
+    }
+    if (pe->optional_header.section_alignment == 0) {
+        fprintf(stderr, "file has section alginment header set to 0, overwriting with %u\n", PAGE_SIZE);
+        pe->optional_header.section_alignment = PAGE_SIZE;
+    }
+
+    section_alignment = pe->optional_header.section_alignment;
+    file_alignment = pe->optional_header.file_alignment;
+
+    /* print image information */
+    if (!silent) {
+        printf("target machine: %04hX subsystem: %hu (%hu.%hu) "
+            "flags: %04hX,%04hX version: %hu.%hu\n",
+            pe->file_header.machine,
+            pe->optional_header.subsystem,
+            pe->optional_header.subsystem_version.major,
+            pe->optional_header.subsystem_version.minor,
+            pe->file_header.characteristics,
+            pe->optional_header.DLL_characteristics,
+            pe->optional_header.image_version.major,
+            pe->optional_header.image_version.minor
+        );
     }
 
     /*== PE section VMA and flags ==*/
@@ -294,7 +264,7 @@ int main(int argc, char* argv[]) {
             if (strncmp(s->name, section->name, PE_SECTION_SIZE_OF_SHORT_NAME) == 0) {
                 /* only fix, if there is something to fix */
                 if (section->virtual_address == 0) {
-                    section->virtual_address = largest_vma;
+                    section->virtual_address = s->target_vma ? s->target_vma : largest_vma;
                     /* llvm-objcopy uses alignment 1 */
                     if (section->virtual_size == 0)
                         section->virtual_size = section->size_of_raw_data,
@@ -320,22 +290,14 @@ int main(int argc, char* argv[]) {
     }
 
 #define print_alignment_header_info(pe, bits) \
-    printf("base: %016lX vmasize: %08X section alignment: %u file alignment: %u\n", \
-        (uint64_t) __join(pe->optional_header,bits).image_base, \
-        (uint32_t) __join(pe->optional_header,bits).size_of_image, \
-        __join(pe->optional_header,bits).section_alignment, \
-        __join(pe->optional_header,bits).file_alignment )
 
-    if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR32_MAGIC) {
-        pe->optional_header32.size_of_image = largest_vma;
-        if (!silent) {
-            print_alignment_header_info(pe, 32);
-        }
-    } else if (pe->optional_header.magic == PE_HEADER_OPTIONAL_HDR64_MAGIC) {
-        pe->optional_header64.size_of_image = largest_vma;
-        if (!silent) {
-            print_alignment_header_info(pe, 64);
-        }
+
+    pe->optional_header.size_of_image = largest_vma;
+    if (!silent) {
+        printf("vmasize: %08X section alignment: %u file alignment: %u\n",
+            (uint32_t) pe->optional_header.size_of_image,
+            pe->optional_header.section_alignment,
+            pe->optional_header.file_alignment);
     }
 
     if (0 > msync(mem.p, mem.size, MS_SYNC)) {
