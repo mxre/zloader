@@ -140,9 +140,11 @@ void usage() {
 int main(int argc, char* argv[]) {
     struct PE_version16 efi_version = { 1, 10 };
     char* filename = NULL, *outfile = NULL;
-    bool silent = true;
+    bool silent = true, force = false, set_version = false;
 
     const struct option long_opts[] = {
+        { .name = "help",       .has_arg = no_argument,       .flag = NULL, .val = 'h' },
+        { .name = "force",      .has_arg = no_argument,       .flag = NULL, .val = 'f' },
         { .name = "verbose",    .has_arg = no_argument,       .flag = NULL, .val = 'v' },
         { .name = "stub",       .has_arg = required_argument, .flag = NULL, .val = 's' },
         { .name = "outfile",    .has_arg = required_argument, .flag = NULL, .val = 'o' },
@@ -156,8 +158,11 @@ int main(int argc, char* argv[]) {
     };
     int c, opt_index = 0;
 
-    while(-1 != (c = getopt_long(argc, argv, "sf:v:", long_opts, &opt_index))) {
+    while(-1 != (c = getopt_long(argc, argv, "hfvs:o:l:i:d:c:O:V:", long_opts, &opt_index))) {
         switch(c) {
+            case 'f':
+                force = true;
+                break;
             case 'v':
                 silent = false;
                 break;
@@ -197,8 +202,10 @@ int main(int argc, char* argv[]) {
                     }
                     efi_version.major = major;
                     efi_version.minor = minor;
+                    set_version = true;
                 }
                 break;
+            case 'h':
             case '?': /* unknown option */
                 usage();
                 return 1;
@@ -274,26 +281,26 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "stat: '%s' %m\n", section_data[i].filename);
             return 1;
         }
+        section_data[i].virtual_size = st.stx_size;
         section_data[i].raw_size = st.stx_size;
         if (i == SECTION_LINUX) {
             uint32_t image_size; uint32_t linux_alignment; uint16_t linux_architecture;
-            if (!inspect_pe(section_data[i].fd, st.stx_size, NULL, &linux_alignment, &image_size, &linux_architecture)) {
-                fprintf(stderr, "Invalid PE '%s'\n", section_data[i].filename);
-                return 1;
-            }
-            section_alignment = MAX(section_alignment, linux_alignment);
-            section_data[i].virtual_size = ALIGN_VALUE(image_size, section_alignment);
+            if (inspect_pe(section_data[i].fd, st.stx_size, NULL, &linux_alignment, &image_size, &linux_architecture)) {
+                section_alignment = MAX(section_alignment, linux_alignment);
+                assert(section_data[i].virtual_size < image_size);
+                section_data[i].virtual_size = ALIGN_VALUE(image_size, section_alignment);
 
-            if (linux_architecture != architecture) {
-                fprintf(stderr, "Linux '%s' and stub '%s' have different architectures\n", section_data[i].filename, filename);
-                return 1;
+                if (linux_architecture != architecture) {
+                    fprintf(stderr, "Linux '%s' and stub '%s' have different architectures\n", section_data[i].filename, filename);
+                    return 1;
+                }
             }
         }
         filesize += ALIGN_VALUE(st.stx_size, file_alignment);
     }
 
     [[ gnu::cleanup(close_p) ]]
-    int fd = openat(AT_FDCWD, outfile, O_CREAT | O_EXCL | O_RDWR, 0644);
+    int fd = openat(AT_FDCWD, outfile, O_CREAT | (force ? 0 : O_EXCL) | O_RDWR, 0644);
     if (fd < 0) {
         fprintf(stderr, "open: '%s' %m\n", outfile);
         return 1;
@@ -402,8 +409,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     if (pe->optional_header.subsystem == PE_HEADER_SUBSYSTEM_EFI_APPLICATION) {
-        pe->optional_header.subsystem_version = efi_version;
-        pe->optional_header.operation_system_version = efi_version;
+        if (set_version) {
+            pe->optional_header.subsystem_version = efi_version;
+            pe->optional_header.operation_system_version = efi_version;
+        }
         /* clear, this does not have any meaning to EFI */
         pe->optional_header.DLL_characteristics = 0;
     }
@@ -423,41 +432,42 @@ int main(int argc, char* argv[]) {
     /* find the end of the last section */
     size_t largest_raw_address = 0; size_t largest_vma = 0;
     for (uint16_t i = pe->file_header.number_of_sections; i--; section++) {
-        if (largest_raw_address < section->pointer_to_raw_data + ALIGN_VALUE(section->pointer_to_raw_data + section->size_of_raw_data, file_alignment)) {
+        if (largest_raw_address < section->pointer_to_raw_data + section->size_of_raw_data) {
             largest_raw_address = ALIGN_VALUE(section->pointer_to_raw_data + section->size_of_raw_data, file_alignment);
         }
         if (largest_vma < section->virtual_address + section->virtual_size) {
-            largest_vma = section->virtual_address + section->virtual_size;
+            largest_vma = ALIGN_VALUE(section->virtual_address + section->virtual_size, section_alignment);
         }
     }
 
-    for (int i = 0; i < _SECTION_MAX; i++) {
-        if (section_data[i].fd <= 0)
+    for (int i = 0; i < _SECTION_MAX; i++, section++) {
+        if (section_data[i].fd <= 0) {
+            section--;
             continue;
+        }
 
         if (!silent)
-            printf("put %8s at 0x%zx (%u)\n", section_data[i].name, largest_raw_address, section_data[i].raw_size);
+            printf("put %8s at 0x%zx (%u)\n", section_data[i].name, largest_raw_address, section_data[i].virtual_size);
         if (read(section_data[i].fd, base + largest_raw_address, section_data[i].raw_size) != section_data[i].raw_size) {
             fprintf(stderr, "read: '%s': %m\n", section_data[i].filename);
             return 1;
         }
 
         *section = (struct PE_section_header) {
-            .virtual_size = ALIGN_VALUE(section_data[i].virtual_size == 0 ? section_data[i].raw_size : section_data[i].virtual_size, section_alignment),
-            .virtual_address = section_data[i].target_vma == 0 ? largest_vma : section_data[i].target_vma ,
-            .size_of_raw_data = section_data[i].raw_size,
+            .virtual_size = section_data[i].virtual_size,
+            .virtual_address = section_data[i].target_vma == 0 ? largest_vma : section_data[i].target_vma,
+            .size_of_raw_data = ALIGN_VALUE(section_data[i].raw_size, file_alignment),
             .pointer_to_raw_data = largest_raw_address,
             .characteristics = section_data[i].flags
         };
         strncpy(section->name, section_data[i].name, PE_SECTION_SIZE_OF_SHORT_NAME);
 
-        pe->optional_header.size_of_initialized_data += section_data[i].raw_size;
+        pe->optional_header.size_of_initialized_data += section->virtual_size;
         pe->optional_header.size_of_image += section->virtual_size;
         pe->file_header.number_of_sections++;
-        largest_vma = section->virtual_address + section->virtual_size;
-        section++;
-        largest_raw_address = ALIGN_VALUE(largest_raw_address + section_data[i].raw_size, file_alignment);
-        filesize += ALIGN_VALUE(section_data[i].raw_size, file_alignment);
+        largest_vma = ALIGN_VALUE(section->virtual_address + section->virtual_size, section_alignment);
+        largest_raw_address += section->size_of_raw_data;
+        filesize += section->size_of_raw_data;
         assert(filesize < mem.size);
     }
 
