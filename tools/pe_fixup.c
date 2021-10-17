@@ -19,20 +19,6 @@
 /* default pagesize for EFI */
 #define PAGE_SIZE 0x1000
 
-static
-struct section_vma {
-    char name[PE_SECTION_SIZE_OF_SHORT_NAME + 1];
-    uint32_t target_vma;
-    uint32_t flags;
-} section_vma[] = {
-    { .name = ".osrel",     .target_vma = 0x20000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".cmdline",   .target_vma = 0x30000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".fdt",       .target_vma = 0x40000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".linux",     .target_vma = 0x2000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { .name = ".initrd",    .target_vma = 0x4000000, .flags = PE_SECTION_CNT_INITIALIZED_DATA | PE_SECTION_MEM_READ },
-    { 0 }
-};
-
 struct map {
     uint8_t* p;
     size_t size;
@@ -67,10 +53,10 @@ int main(int argc, char* argv[]) {
     bool silent = false, set_version = false;
 
     const struct option long_opts[] = {
-        { .name = "silent", .has_arg = no_argument, .flag = NULL, .val = 's' },
-        { .name = "file", .has_arg = required_argument, .flag = NULL, .val = 'f' },
+        { .name = "silent",     .has_arg = no_argument,       .flag = NULL, .val = 's' },
+        { .name = "file",       .has_arg = required_argument, .flag = NULL, .val = 'f' },
         { .name = "efiversion", .has_arg = required_argument, .flag = NULL, .val = 'v' },
-        { 0 }
+        { }
     };
     int c, opt_index = 0;
 
@@ -122,7 +108,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* get the file size */
-    struct statx st = { 0 };
+    struct statx st = { };
     if (0 > statx(fd, "", AT_EMPTY_PATH, STATX_SIZE, &st)) {
         fprintf(stderr, "stat: %m\n");
         return 1;
@@ -260,23 +246,6 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "section %.*s has size 0 and is and is empty", PE_SECTION_SIZE_OF_SHORT_NAME, section->name);
             return 1;
         }
-        for (struct section_vma* s = section_vma; *s->name; s++) {
-            if (strncmp(s->name, section->name, PE_SECTION_SIZE_OF_SHORT_NAME) == 0) {
-                /* only fix, if there is something to fix */
-                if (section->virtual_address == 0) {
-                    section->virtual_address = s->target_vma ? s->target_vma : largest_vma;
-                    /* llvm-objcopy uses alignment 1 */
-                    if (section->virtual_size == 0)
-                        section->virtual_size = section->size_of_raw_data,
-                    section->characteristics = s->flags;
-
-                    /* fix gaps in section table */
-                    section->size_of_raw_data = ALIGN_VALUE(section->pointer_to_raw_data + section->size_of_raw_data, file_alignment) - section->pointer_to_raw_data;
-                }
-            }
-        }
-
-        largest_vma = ALIGN_VALUE(section->virtual_address + section->virtual_size, section_alignment);
 
         if (!silent) {
             printf("%10.*s (%08x %10u) (%08x %12u) (%04x %4hu) %08x\n",
@@ -288,9 +257,6 @@ int main(int argc, char* argv[]) {
             );
         }
     }
-
-#define print_alignment_header_info(pe, bits) \
-
 
     pe->optional_header.size_of_image = largest_vma;
     if (!silent) {
