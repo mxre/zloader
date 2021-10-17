@@ -84,9 +84,6 @@ static bool inspect_pe(
     uint32_t* image_size,
     uint16_t* architecture
 ) {
-
-    assert(filename);
-
     if (file_size < PE_HEADER_SIZE)
         return false;
 

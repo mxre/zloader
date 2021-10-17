@@ -17,7 +17,7 @@
 #endif
 
 #ifndef __always_inline
-#  if __has_c_attribute(clang::packed)
+#  if __has_c_attribute(gnu::always_inline)
 #    define __always_inline [[ gnu::always_inline ]]
 #  else
 #    define __always_inline
