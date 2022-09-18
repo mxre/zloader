@@ -7,5 +7,5 @@
 #define LOADER_NAME "zloader"
 
 #ifndef LOADER_VERSION
-#  define LOADER_VERSION "0.1"
+#  define LOADER_VERSION "0.2"
 #endif

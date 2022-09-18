@@ -54,13 +54,17 @@ struct simple_buffer {
 
 typedef struct aligned_buffer* aligned_buffer_t;
 
+/**
+ * @extends simple_buffer
+ */
 struct aligned_buffer {
-    void* buffer;
+    void* buffer;       ///< pointer to the aligned buffer base
     size_t length;
     size_t pos;
-    size_t allocated;
+    size_t allocated;   ///< number of bytes allocated (from aligned buffer base)
     void (*free) (aligned_buffer_t);
-    size_t pages;
+    void* raw;          ///< actual beginning of allocated memory (non aligned)
+    size_t pages;       ///< number of pages allocated
 };
 
 static __always_inline inline
@@ -96,8 +100,8 @@ void free_simple_buffer(simple_buffer_t buffer) {
 
 static inline
 void free_aligned_buffer(aligned_buffer_t buffer) {
-    if (buffer->allocated && buffer->buffer)
-        BS->free_pages((efi_physical_address_t) buffer->buffer, buffer->pages);
+    if (buffer->pages && buffer->raw)
+        BS->free_pages((efi_physical_address_t) buffer->raw, buffer->pages);
 }
 
 static __always_inline inline
@@ -113,20 +117,42 @@ bool allocate_simple_buffer(size_t length, simple_buffer_t buffer) {
     return true;
 }
 
+/**
+ * @brief Allocate an aligned buffer with custom alignment
+ *
+ * @param length Length of buffer (will be aligned to alignemnt and PAGE_SIZE)
+ * @param type EFI memory type
+ * @param alignment alignement of buffer (should be power of 2)
+ * @param buffer
+ * @returns `true` on success
+ */
 static __always_inline inline
-bool allocate_aligned_buffer(size_t length, efi_memory_t type, aligned_buffer_t buffer) {
-    buffer->allocated = (ALIGN_VALUE(length + PAGE_SIZE, PAGE_SIZE));
-    buffer->pages = buffer->allocated / PAGE_SIZE;
+bool allocate_aligned_buffer_ext(size_t length, efi_memory_t type, size_t alignment, aligned_buffer_t buffer) {
+    buffer->pages = (ALIGN_VALUE(length + alignment, alignment)) / PAGE_SIZE;
     buffer->pos = buffer->length = 0;
     buffer->free = free_aligned_buffer;
 
     if (EFI_SUCCESS != BS->allocate_pages(EFI_ALLOCATE_ANY_PAGES, type,
-        buffer->pages, (efi_physical_address_t*) &buffer->buffer)
+        buffer->pages, (efi_physical_address_t*) &buffer->raw)
     ) {
+        buffer->pages = 0;
         return false;
     }
 
+    buffer->buffer = (void*) ALIGN_VALUE((intptr_t) buffer->raw, alignment);
+    buffer->allocated = (ALIGN_VALUE(length + alignment, alignment)) - (buffer->buffer - buffer->raw);
+
     return true;
+}
+
+/**
+ * @brief allocate PAGE aligned buffer
+ *
+ * @see allocate_aligned_buffer_ext
+ */
+static __always_inline inline
+bool allocate_aligned_buffer(size_t length, efi_memory_t type, aligned_buffer_t buffer) {
+    return allocate_aligned_buffer_ext(length, type, PAGE_SIZE, buffer);
 }
 
 /**

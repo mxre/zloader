@@ -361,11 +361,11 @@ efi_status_t relocate_sections(
 
         if (sec->characteristics & PE_SECTION_CNT_UNINITIALIZED_DATA) {
             memset(base, 0, sec->virtual_size);
-		} else {
+       } else {
             if (sec->pointer_to_raw_data < ctx->size_of_headers) {
-				_MESSAGE("Section %.*s is inside image headers", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
+               _MESSAGE("Section %.*s is inside image headers", PE_SECTION_SIZE_OF_SHORT_NAME, sec->name);
                 return EFI_LOAD_ERROR;
-			}
+        }
 
             if (base != ctx->base + sec->pointer_to_raw_data) {
                 if (sec->size_of_raw_data > 0)
@@ -555,7 +555,7 @@ efi_status_t PE_handle_image(
     /* allocate alligned pages for PE image and data */
     _cleanup_buffer struct aligned_buffer buf = { 0 };
     aligned_buffer_t data = &buf;
-    allocate_aligned_buffer(ctx.size_of_image, EFI_LOADER_DATA, &buf);
+    allocate_aligned_buffer_ext(ctx.size_of_image, EFI_LOADER_DATA, ctx.section_alignment, &buf);
     memcpy(data->buffer, ctx.base, ctx.size_of_headers);
 
     *entry_point = (efi_entry_point_t) image_address(data->buffer, ctx.size_of_image, ctx.entry_point);
@@ -590,7 +590,7 @@ efi_status_t PE_handle_image(
 
     /* create device path for memory mapped file */
     efi_device_path_t dp = create_memory_mapped_device_path(
-        (efi_physical_address_t) data->buffer, data->allocated, EFI_LOADER_DATA);
+        (efi_physical_address_t) data->raw, data->pages * PAGE_SIZE, EFI_LOADER_DATA);
 
     if (!dp) {
         return EFI_OUT_OF_RESOURCES;
@@ -602,7 +602,7 @@ efi_status_t PE_handle_image(
         return EFI_OUT_OF_RESOURCES;
     }
 
-    /* setup image handle */
+    /* setup loaded image */
     struct efi_loaded_image_protocol _lp = {
         .revision = EFI_LOADED_IMAGE_PROTOCOL_REVISION,
         .parent_handle = EFI_IMAGE,
@@ -618,6 +618,7 @@ efi_status_t PE_handle_image(
     };
     **loaded_image = _lp;
 
+    /* create a new handle with the required protocols */
     *image = NULL;
     err = BS->install_multiple_protocol_interfaces(
         image,
@@ -634,6 +635,5 @@ efi_status_t PE_handle_image(
 
     /* don't free allocated buffer on exit */
     data->free = NULL;
-
     return EFI_SUCCESS;
 }

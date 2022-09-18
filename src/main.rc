@@ -8,8 +8,8 @@
 #pragma code_page(65001) /* use UTF8 */
 
 1 VERSIONINFO
-FILEVERSION     0, 0, 1, 0
-PRODUCTVERSION  0, 0, 1, 0
+FILEVERSION     0, 0, 2, 0
+PRODUCTVERSION  0, 0, 2, 0
 FILEOS          0 /* none since EFI */
 FILETYPE        1 /* executable */
 FILEFLAGSMASK   0x3f
@@ -18,8 +18,8 @@ FILEFLAGS       0L
 {
   BLOCK "StringFileInfo" {
     BLOCK "000904b0" {
-      VALUE "FileVersion",      "0.1"
-      VALUE "ProductVersion",   "0.1"
+      VALUE "FileVersion",      "0.2"
+      VALUE "ProductVersion",   "0.2"
       VALUE "ProductName",      "zloader"
       VALUE "FileDescription",  "EFI Stub for Kernels using Compression"
       VALUE "OriginalFilename", "zloader.efi"
