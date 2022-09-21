@@ -52,7 +52,7 @@ void* memset (
     uint8_t value,
     efi_size_t size    
 ) {
-#if EFLLIB_USE_EFI_SET_MEM
+#if EFILIB_USE_EFI_SET_MEM
     EFILIB_ASSERT(BS);
     BS->set_mem(buffer, size, value);
 #else
@@ -73,7 +73,7 @@ void* memmove (
     const void* src,
     efi_size_t size  
 ) {
-#if EFLLIB_USE_EFI_COPY_MEM
+#if EFILIB_USE_EFI_COPY_MEM
     EFILIB_ASSERT(BS);
     BS->copy_mem(dst, src, size);
     return dst;
@@ -101,7 +101,7 @@ void* memcpy (
     const void* src,
     efi_size_t size   
 ) {
-#if EFLLIB_USE_EFI_COPY_MEM
+#if EFILIB_USE_EFI_COPY_MEM
     EFILIB_ASSERT(BS);
     BS->copy_mem(dst, src, size);
 #else
